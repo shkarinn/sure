@@ -1,0 +1,10 @@
+<%# locals: (account:) %>
+<%# Targets of the buttons in accounts/_logo_field. They live outside the
+    account form because forms cannot nest; each updates only the logo frame. %>
+<% frame = dom_id(account, :logo_field) %>
+<%= form_with url: logo_options_account_path(account), method: :get, id: dom_id(account, :logo_options), class: "hidden", data: { turbo_frame: frame } do %>
+<% end %>
+<%= form_with url: fetch_logo_account_path(account), method: :post, id: dom_id(account, :fetch_logo), class: "hidden" do %>
+<% end %>
+<%= form_with url: remove_logo_account_path(account), method: :delete, id: dom_id(account, :remove_logo), class: "hidden" do %>
+<% end %>

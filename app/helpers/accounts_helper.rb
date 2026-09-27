@@ -62,36 +62,37 @@ module AccountsHelper
     else "none"
     end
 
-    t("accounts.logo_caption.#{key}")
+    name = account.logo.blob.metadata["logo_name"] if key == account.logo_source
+    [ t("accounts.logo_caption.#{key}"), name ].compact.join(" · ")
   end
 
-  LogoOption = Data.define(:source, :src, :label, :detail, :current)
+  LogoOption = Data.define(:source, :src, :label, :detail, :title, :current)
 
-  # Rows of the logo picker: the icons the favicon services found, the stored
-  # logo while Brandfetch is shown instead, and Brandfetch when configured.
+  # Tiles of the logo picker: the icons found for the domain, the stored logo
+  # while Brandfetch is shown instead, and Brandfetch when configured.
+  # `source` is what fetch_logo receives when the tile is chosen.
   def account_logo_options(account, candidates)
+    shows_stored = !account.prefer_brandfetch_logo?
+
     options = candidates.map do |icon|
       LogoOption.new(
-        source: icon.source,
+        source: icon.key,
         src: "data:#{icon.content_type};base64,#{Base64.strict_encode64(icon.body)}",
         label: t("accounts.logo_options.sources.#{icon.source}"),
         detail: t("accounts.logo_options.size", size: icon.size),
-        current: !account.prefer_brandfetch_logo? && account.logo_source == icon.source
+        title: icon.name,
+        current: shows_stored && account.logo_key == icon.key
       )
     end
 
-    if account.prefer_brandfetch_logo? && account.stored_logo_url
-      options.unshift(LogoOption.new(source: "stored", src: account.stored_logo_url, label: t("accounts.logo_options.stored"), detail: nil, current: false))
+    if !shows_stored && account.stored_logo_url
+      options.unshift(LogoOption.new(source: "stored", src: account.stored_logo_url, label: t("accounts.logo_options.stored"),
+                                     detail: nil, title: nil, current: false))
     end
 
     if account.brandfetch_logo_url
-      options << LogoOption.new(
-        source: "brandfetch",
-        src: account.brandfetch_logo_url,
-        label: t("accounts.logo_options.sources.brandfetch"),
-        detail: nil,
-        current: account.prefer_brandfetch_logo? || !account.logo.attached?
-      )
+      options << LogoOption.new(source: "brandfetch", src: account.brandfetch_logo_url, label: t("accounts.logo_options.sources.brandfetch"),
+                                detail: nil, title: nil, current: !shows_stored || !account.logo.attached?)
     end
 
     options

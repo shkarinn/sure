@@ -1,0 +1,67 @@
+<%# locals: (account:, candidates: nil, message: nil) %>
+<%# Sits inside the account form, so its buttons submit the forms rendered
+    after it (accounts/_logo_forms) through their `form` attribute. %>
+<%= turbo_frame_tag dom_id(account, :logo_field), class: "block space-y-2", data: { testid: "account-logo-field" } do %>
+  <div class="space-y-1">
+    <%= render "accounts/logo", account: account, size: "lg" %>
+    <p class="text-xs text-secondary"><%= account_logo_caption(account) %></p>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <% if account.institution_domain.present? %>
+      <%= render DS::Button.new(
+            text: t("accounts.logo_field.pick"),
+            variant: :outline,
+            size: :sm,
+            icon: "images",
+            type: "submit",
+            form: dom_id(account, :logo_options),
+            data: { turbo_submits_with: t("accounts.logo_field.searching") }
+          ) %>
+      <%= render DS::Button.new(
+            text: t("accounts.logo_field.refresh"),
+            variant: :outline,
+            size: :sm,
+            icon: "refresh-cw",
+            type: "submit",
+            form: dom_id(account, :fetch_logo),
+            data: { turbo_submits_with: t("accounts.logo_field.searching") }
+          ) %>
+    <% end %>
+    <% if account.logo.attached? %>
+      <%= render DS::Button.new(
+            text: t("accounts.logo_field.remove"),
+            variant: :outline,
+            size: :sm,
+            icon: "trash-2",
+            type: "submit",
+            form: dom_id(account, :remove_logo)
+          ) %>
+    <% end %>
+  </div>
+
+  <% if message %>
+    <p class="text-xs text-secondary"><%= message %></p>
+  <% end %>
+
+  <% if candidates %>
+    <% options = account_logo_options(account, candidates) %>
+    <% if options.empty? %>
+      <p class="text-xs text-secondary"><%= t("accounts.logo_field.empty") %></p>
+    <% else %>
+      <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+        <% options.each do |option| %>
+          <%= tag.button type: "submit", form: dom_id(account, :fetch_logo), name: "source", value: option.source,
+                         title: option.title, disabled: option.current,
+                         class: "flex flex-col items-center gap-1 p-2 rounded-lg border min-w-0 #{option.current ? "border-primary" : "border-secondary hover:bg-surface-hover cursor-pointer"}" do %>
+            <%= image_tag option.src, alt: option.title || option.label, class: "w-10 h-10 rounded-full object-contain" %>
+            <span class="text-xs text-primary truncate w-full text-center"><%= option.label %></span>
+            <span class="text-xs text-secondary truncate w-full text-center">
+              <%= option.current ? t("accounts.logo_field.current") : option.detail %>
+            </span>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>
