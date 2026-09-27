@@ -691,6 +691,118 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_url(accounts(:credit_card))
   end
 
+  test "fetch_logo refreshes the logo automatically" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: nil, auto: true).returns(true)
+
+    post fetch_logo_account_url(@account)
+
+    assert_redirected_to account_url(@account)
+    assert_equal I18n.t("accounts.fetch_logo.success"), flash[:notice]
+  end
+
+  test "fetch_logo attaches the chosen source" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "yandex", auto: false).returns(true)
+
+    post fetch_logo_account_url(@account), params: { source: "yandex" }
+
+    assert_redirected_to account_url(@account)
+  end
+
+  test "fetch_logo reports when no icon was found" do
+    Account::LogoFetcher.any_instance.expects(:fetch).returns(false)
+
+    post fetch_logo_account_url(@account)
+
+    assert_redirected_to account_url(@account)
+    assert_equal I18n.t("accounts.fetch_logo.not_found"), flash[:alert]
+  end
+
+  test "fetch_logo switches between Brandfetch and the stored logo" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    Account::LogoFetcher.any_instance.expects(:fetch).never
+
+    post fetch_logo_account_url(@account), params: { source: "brandfetch" }
+    assert @account.reload.prefer_brandfetch_logo?
+
+    post fetch_logo_account_url(@account), params: { source: "stored" }
+    assert_not @account.reload.prefer_brandfetch_logo?
+    assert @account.logo.attached?, "switching never deletes the stored logo"
+  end
+
+  test "fetch_logo requires write permission" do
+    sign_in users(:family_member)
+    Account::LogoFetcher.any_instance.expects(:fetch).never
+
+    post fetch_logo_account_url(accounts(:credit_card))
+    assert_redirected_to account_url(accounts(:credit_card))
+  end
+
+  test "logo_options shows the icons found and Brandfetch inside the logo frame" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "krungsri.com")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "krungsri.com.png",
+                         metadata: { "logo_source" => "yandex", "logo_key" => "yandex", "logo_auto" => true })
+    icons = [ logo_icon("appstore:123", "appstore", 512, name: "krungsri"), logo_icon("yandex", "yandex", 120) ]
+    Account::LogoFetcher.any_instance.stubs(:candidates).returns(icons)
+
+    get logo_options_account_url(@account), headers: { "Turbo-Frame" => dom_id(@account, :logo_field) }
+
+    assert_response :success
+    assert_select "turbo-frame##{dom_id(@account, :logo_field)}"
+    assert_select "button[name=source][value='appstore:123'][title=krungsri]:not([disabled])"
+    assert_select "button[name=source][value=yandex][disabled]", 1, "the current icon cannot be chosen again"
+    assert_select "button[name=source][value=brandfetch]"
+    assert_select "img[src^='data:image/png;base64,']", 2
+  end
+
+  test "logo_options outside the frame goes to the account" do
+    get logo_options_account_url(@account)
+
+    assert_redirected_to account_url(@account)
+  end
+
+  test "logo_options requires write permission" do
+    sign_in users(:family_member)
+
+    get logo_options_account_url(accounts(:credit_card))
+    assert_redirected_to account_url(accounts(:credit_card))
+  end
+
+  test "fetch_logo updates only the logo frame" do
+    @account.update!(institution_domain: "krungsri.com")
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "appstore:123", auto: false).returns(true)
+
+    post fetch_logo_account_url(@account), params: { source: "appstore:123" }, as: :turbo_stream
+
+    assert_response :success
+    assert_select "turbo-stream[action=replace][target=?]", dom_id(@account, :logo_field)
+    assert_includes response.body, I18n.t("accounts.fetch_logo.success")
+  end
+
+  test "remove_logo deletes the stored logo in place" do
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    @account.update!(prefer_brandfetch_logo: true)
+
+    delete remove_logo_account_url(@account), as: :turbo_stream
+
+    assert_response :success
+    assert_select "turbo-stream[action=replace][target=?]", dom_id(@account, :logo_field)
+    assert_not @account.reload.logo.attached?
+    assert_not @account.prefer_brandfetch_logo?
+  end
+
+  test "remove_logo requires write permission" do
+    sign_in users(:family_member)
+    accounts(:credit_card).logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+
+    delete remove_logo_account_url(accounts(:credit_card))
+
+    assert_redirected_to account_url(accounts(:credit_card))
+    assert accounts(:credit_card).reload.logo.attached?
+  end
+
   test "select_provider shows available providers" do
     get select_provider_account_url(@account)
     assert_response :success
@@ -893,6 +1005,11 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "a[href=?]", edit_plaid_item_path(item, add_accounts: true), count: 0
   end
+
+  private
+    def logo_icon(key, source, size, name: nil)
+      Account::LogoFetcher::Icon.new(key:, source:, name:, body: "\x89PNG".b, size:, content_type: "image/png", extension: "png")
+    end
 end
 
 class AccountsControllerSimplefinCtaTest < ActionDispatch::IntegrationTest

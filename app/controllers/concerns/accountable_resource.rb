@@ -83,6 +83,8 @@ module AccountableResource
     # other submitted fields. Keep them available for the 422 form without
     # persisting them.
     update_params = account_params.except(:return_to, :balance, :opening_balance_date)
+    # An uploaded logo is meant to be seen, so it takes over from Brandfetch.
+    update_params[:prefer_brandfetch_logo] = false if account_params[:logo].present?
 
     # The balance change and the attribute update are one form, so they commit
     # or roll back as one. `set_current_balance` writes a valuation and the
@@ -156,7 +158,7 @@ module AccountableResource
         :name, :balance, :subtype, :currency, :accountable_type, :return_to,
         :opening_balance_date,
         :institution_name, :institution_domain, :notes, :exclude_from_reports,
-        :enable_category_matcher,
+        :enable_category_matcher, :logo,
         accountable_attributes: self.class.permitted_accountable_attributes
       )
     end

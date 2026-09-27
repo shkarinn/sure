@@ -2,7 +2,7 @@ class AccountsController < ApplicationController
   include StreamExtensions
 
   before_action :set_account, only: %i[show sparkline sync set_default remove_default]
-  before_action :set_manageable_account, only: %i[toggle_active toggle_exclude_from_reports destroy unlink confirm_unlink select_provider]
+  before_action :set_manageable_account, only: %i[logo_options fetch_logo remove_logo toggle_active toggle_exclude_from_reports destroy unlink confirm_unlink select_provider]
   before_action :ensure_linked_account, only: %i[confirm_unlink unlink]
   include Periodable
 
@@ -206,6 +206,37 @@ class AccountsController < ApplicationController
     end
   end
 
+  # The logo actions update only the icon block of the account form, so the
+  # rest of the form keeps what the user typed.
+  def logo_options
+    return redirect_to account_path(@account) unless turbo_frame_request?
+
+    render partial: "accounts/logo_field", locals: { account: @account, candidates: Account::LogoFetcher.new(@account).candidates }
+  end
+
+  # Without a source, refreshes the logo with the best icon found, as the
+  # automatic fetch does. "brandfetch" and "stored" switch between Brandfetch
+  # and the stored logo without deleting it.
+  def fetch_logo
+    fetched = case params[:source]
+    when "brandfetch"
+      @account.brandfetch_logo_url.present? && @account.update!(prefer_brandfetch_logo: true)
+    when "stored"
+      @account.logo.attached? && @account.update!(prefer_brandfetch_logo: false)
+    else
+      Account::LogoFetcher.new(@account).fetch(source: params[:source].presence, auto: params[:source].blank?)
+    end
+
+    render_logo_field(fetched ? t(".success") : t(".not_found"), success: fetched)
+  end
+
+  def remove_logo
+    @account.logo.purge
+    @account.update!(prefer_brandfetch_logo: false)
+
+    render_logo_field(t(".success"))
+  end
+
   def toggle_active
     if @account.active?
       @account.disable!
@@ -328,6 +359,19 @@ class AccountsController < ApplicationController
   end
 
   private
+    def render_logo_field(message, success: true)
+      respond_to do |format|
+        format.turbo_stream do
+          render turbo_stream: turbo_stream.replace(
+            helpers.dom_id(@account, :logo_field),
+            partial: "accounts/logo_field",
+            locals: { account: @account, message: message }
+          )
+        end
+        format.html { redirect_to account_path(@account), (success ? :notice : :alert) => message }
+      end
+    end
+
     # Built here rather than in the template: assembling a chart payload is
     # domain work, and `show` asks for it exactly once per request, so there
     # is nothing to memoise.
