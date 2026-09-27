@@ -1,13 +1,15 @@
 # Downloads an institution's icon through public favicon services and stores
 # it as the account's own logo. Brandfetch refuses server-side downloads and
-# bank sites block bots, so these services are the reliable source.
+# bank sites block bots, while these services' crawlers already collected the
+# sites' touch and manifest icons.
 class Account::LogoFetcher
   SOURCES = [
-    ->(domain) { "https://www.google.com/s2/favicons?domain=#{domain}&sz=128" },
-    ->(domain) { "https://icons.duckduckgo.com/ip3/#{domain}.ico" }
+    ->(domain) { "https://www.google.com/s2/favicons?domain=#{domain}&sz=256" },
+    ->(domain) { "https://icons.duckduckgo.com/ip3/#{domain}.ico" },
+    ->(domain) { "https://favicon.yandex.net/favicon/v2/#{domain}?size=120" }
   ].freeze
 
-  # Both services answer unknown domains with a 16px placeholder.
+  # The services answer unknown domains with a 16px (or 1px) placeholder.
   MIN_SIZE = 17
   MAX_REDIRECTS = 3
   DOMAIN_FORMAT = /\A[a-z0-9-]+(\.[a-z0-9-]+)+\z/

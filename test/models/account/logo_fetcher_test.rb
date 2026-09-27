@@ -1,12 +1,14 @@
 require "test_helper"
 
 class Account::LogoFetcherTest < ActiveSupport::TestCase
-  GOOGLE_URL = "https://www.google.com/s2/favicons?domain=tbank.ru&sz=128"
+  GOOGLE_URL = "https://www.google.com/s2/favicons?domain=tbank.ru&sz=256"
   DUCKDUCKGO_URL = "https://icons.duckduckgo.com/ip3/tbank.ru.ico"
+  YANDEX_URL = "https://favicon.yandex.net/favicon/v2/tbank.ru?size=120"
 
   setup do
     @account = accounts(:depository)
     @account.update!(institution_domain: "tbank.ru")
+    stub_request(:get, YANDEX_URL).to_return(status: 404)
   end
 
   test "attaches the largest icon the favicon services return" do
@@ -18,6 +20,16 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert @account.reload.logo.attached?
     assert_equal ico(128).bytesize, @account.logo.blob.byte_size
     assert_equal "tbank.ru.ico", @account.logo.filename.to_s
+  end
+
+  test "uses Yandex when it has the only real icon" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(16))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
+    stub_request(:get, YANDEX_URL).to_return(status: 200, body: png(120))
+
+    assert Account::LogoFetcher.new(@account).fetch
+
+    assert_equal png(120).bytesize, @account.reload.logo.blob.byte_size
   end
 
   test "follows the favicon service redirect" do
@@ -65,7 +77,7 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     @account.update!(institution_domain: "bad domain.ru")
     assert_not Account::LogoFetcher.new(@account).fetch
 
-    assert_not_requested :get, /google|duckduckgo/
+    assert_not_requested :get, /google|duckduckgo|yandex/
   end
 
   private
