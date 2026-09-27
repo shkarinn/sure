@@ -7,7 +7,7 @@
     <% if options.empty? %>
       <p class="text-sm text-secondary"><%= t(".empty") %></p>
     <% else %>
-      <ul class="divide-y divide-primary">
+      <ul class="divide-y divide-subdued">
         <% options.each do |option| %>
           <li class="flex items-center gap-3 py-3">
             <%= image_tag option.src, alt: option.label, class: "w-10 h-10 shrink-0 rounded-full" %>
