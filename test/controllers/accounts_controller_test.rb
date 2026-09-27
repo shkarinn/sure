@@ -691,13 +691,21 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_url(accounts(:credit_card))
   end
 
-  test "fetch_logo attaches the icon from the institution site" do
-    Account::LogoFetcher.any_instance.expects(:fetch).returns(true)
+  test "fetch_logo refreshes the logo automatically" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: nil, auto: true).returns(true)
 
     post fetch_logo_account_url(@account)
 
     assert_redirected_to account_url(@account)
     assert_equal I18n.t("accounts.fetch_logo.success"), flash[:notice]
+  end
+
+  test "fetch_logo attaches the chosen source" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "yandex", auto: false).returns(true)
+
+    post fetch_logo_account_url(@account), params: { source: "yandex" }
+
+    assert_redirected_to account_url(@account)
   end
 
   test "fetch_logo reports when no icon was found" do
@@ -709,11 +717,50 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_equal I18n.t("accounts.fetch_logo.not_found"), flash[:alert]
   end
 
+  test "fetch_logo switches between Brandfetch and the stored logo" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    Account::LogoFetcher.any_instance.expects(:fetch).never
+
+    post fetch_logo_account_url(@account), params: { source: "brandfetch" }
+    assert @account.reload.prefer_brandfetch_logo?
+
+    post fetch_logo_account_url(@account), params: { source: "stored" }
+    assert_not @account.reload.prefer_brandfetch_logo?
+    assert @account.logo.attached?, "switching never deletes the stored logo"
+  end
+
   test "fetch_logo requires write permission" do
     sign_in users(:family_member)
     Account::LogoFetcher.any_instance.expects(:fetch).never
 
     post fetch_logo_account_url(accounts(:credit_card))
+    assert_redirected_to account_url(accounts(:credit_card))
+  end
+
+  test "logo_options shows the icons found and Brandfetch" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "tbank.ru.png",
+                         metadata: { "logo_source" => "google", "logo_auto" => true })
+    icons = [ Account::LogoFetcher::Icon.new("google", "\x89PNG".b, 180, "image/png", "png"),
+              Account::LogoFetcher::Icon.new("yandex", "\x89PNG".b, 120, "image/png", "png") ]
+    Account::LogoFetcher.any_instance.stubs(:candidates).returns(icons)
+
+    get logo_options_account_url(@account)
+
+    assert_response :success
+    assert_select "button[name=source][value=google]", count: 0, message: "the current icon has no choose button"
+    assert_select "button[name=source][value=yandex]"
+    assert_select "button[name=source][value=brandfetch]"
+    assert_select "img[src^='data:image/png;base64,']"
+  end
+
+  test "logo_options requires write permission" do
+    sign_in users(:family_member)
+
+    get logo_options_account_url(accounts(:credit_card))
     assert_redirected_to account_url(accounts(:credit_card))
   end
 

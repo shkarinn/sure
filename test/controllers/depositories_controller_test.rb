@@ -130,12 +130,15 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "update uploads and removes the account logo" do
+    @account.update!(prefer_brandfetch_logo: true)
+
     patch depository_path(@account), params: {
       account: { logo: fixture_file_upload("square-placeholder.png", "image/png") }
     }
 
     assert_redirected_to account_path(@account)
     assert @account.reload.logo.attached?
+    assert_not @account.prefer_brandfetch_logo?, "an upload is shown instead of Brandfetch"
 
     patch depository_path(@account), params: { account: { remove_logo: "1" } }
 
@@ -152,13 +155,14 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_not @account.reload.logo.attached?
   end
 
-  test "edit form offers fetching the logo from the institution site" do
+  test "edit form offers picking and refreshing the logo next to the domain" do
     @account.update!(institution_domain: "tbank.ru")
 
     get edit_account_url(@account)
 
     assert_response :success
+    assert_select "[data-testid=account-logo-field] a[href=?]", logo_options_account_path(@account)
     assert_select "form[id=?][action=?]", dom_id(@account, :fetch_logo), fetch_logo_account_path(@account)
-    assert_select "button[form=?]", dom_id(@account, :fetch_logo)
+    assert_select "[data-testid=account-logo-field] button[form=?]", dom_id(@account, :fetch_logo)
   end
 end

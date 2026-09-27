@@ -84,3 +84,9 @@ refresh_maintained_goal_targets:
   class: "RefreshMaintainedGoalTargetsJob"
   queue: "scheduled"
   description: "Recomputes the floor of reserves expressed in months of expenses"
+
+backfill_account_logos:
+  cron: "30 3 * * *" # 3:30 AM every day
+  class: "AccountLogoBackfillJob"
+  queue: "scheduled"
+  description: "Fetches icons for accounts with an institution domain and no logo"

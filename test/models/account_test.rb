@@ -970,4 +970,45 @@ class AccountTest < ActiveSupport::TestCase
     assert_not @account.valid?
     assert @account.errors.added?(:logo, :too_large, max_size: 1)
   end
+
+  test "prefer_brandfetch_logo shows Brandfetch while keeping the stored logo" do
+    @account.update!(institution_domain: "tbank.ru", prefer_brandfetch_logo: true)
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "logo.png")
+
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    assert_match %r{\Ahttps://cdn\.brandfetch\.io/tbank\.ru/}, @account.logo_url
+    assert @account.logo.attached?
+
+    Setting.stubs(:brand_fetch_client_id).returns(nil)
+    assert_equal Rails.application.routes.url_helpers.rails_blob_path(@account.logo, only_path: true), @account.logo_url
+  end
+
+  test "only empty or automatically picked logos are fetched automatically" do
+    @account.update!(institution_domain: "tbank.ru")
+    assert @account.logo_auto_fetchable?
+
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    assert_not @account.logo_auto_fetchable?, "an uploaded logo stays"
+
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "tbank.ru.png",
+                         metadata: { "logo_source" => "google", "logo_auto" => true })
+    assert @account.logo_auto_fetchable?
+
+    @account.update!(prefer_brandfetch_logo: true)
+    assert_not @account.logo_auto_fetchable?, "a chosen Brandfetch logo stays"
+
+    @account.update!(prefer_brandfetch_logo: false, institution_domain: nil)
+    assert_not @account.logo_auto_fetchable?
+  end
+
+  test "setting or changing the institution domain fetches a logo in the background" do
+    assert_enqueued_with(job: AccountLogoFetchJob, args: [ @account ]) do
+      @account.update!(institution_domain: "tbank.ru")
+    end
+
+    assert_no_enqueued_jobs(only: AccountLogoFetchJob) do
+      @account.update!(name: "Renamed")
+      @account.update!(institution_domain: nil)
+    end
+  end
 end

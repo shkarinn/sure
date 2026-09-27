@@ -53,4 +53,47 @@ module AccountsHelper
       Setting.brand_fetch_client_id.present?
     ]
   end
+
+  # Where the icon shown for the account comes from, for the account form.
+  def account_logo_caption(account)
+    key = if account.prefer_brandfetch_logo? && account.brandfetch_logo_url then "brandfetch"
+    elsif account.stored_logo_url then account.logo_source || "uploaded"
+    elsif account.brandfetch_logo_url then "brandfetch"
+    else "none"
+    end
+
+    t("accounts.logo_caption.#{key}")
+  end
+
+  LogoOption = Data.define(:source, :src, :label, :detail, :current)
+
+  # Rows of the logo picker: the icons the favicon services found, the stored
+  # logo while Brandfetch is shown instead, and Brandfetch when configured.
+  def account_logo_options(account, candidates)
+    options = candidates.map do |icon|
+      LogoOption.new(
+        source: icon.source,
+        src: "data:#{icon.content_type};base64,#{Base64.strict_encode64(icon.body)}",
+        label: t("accounts.logo_options.sources.#{icon.source}"),
+        detail: t("accounts.logo_options.size", size: icon.size),
+        current: !account.prefer_brandfetch_logo? && account.logo_source == icon.source
+      )
+    end
+
+    if account.prefer_brandfetch_logo? && account.stored_logo_url
+      options.unshift(LogoOption.new(source: "stored", src: account.stored_logo_url, label: t("accounts.logo_options.stored"), detail: nil, current: false))
+    end
+
+    if account.brandfetch_logo_url
+      options << LogoOption.new(
+        source: "brandfetch",
+        src: account.brandfetch_logo_url,
+        label: t("accounts.logo_options.sources.brandfetch"),
+        detail: nil,
+        current: account.prefer_brandfetch_logo? || !account.logo.attached?
+      )
+    end
+
+    options
+  end
 end

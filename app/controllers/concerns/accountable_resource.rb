@@ -84,6 +84,8 @@ module AccountableResource
     # persisting them.
     update_params = account_params.except(:return_to, :balance, :opening_balance_date, :remove_logo)
     update_params[:logo] = nil if account_params[:remove_logo] == "1" && account_params[:logo].blank?
+    # An uploaded logo is meant to be seen, so it takes over from Brandfetch.
+    update_params[:prefer_brandfetch_logo] = false if account_params[:logo].present?
 
     # The balance change and the attribute update are one form, so they commit
     # or roll back as one. `set_current_balance` writes a valuation and the

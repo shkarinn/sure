@@ -58,8 +58,9 @@ ru:
       institution_domain_missing_logo_key_hint: Логотипы по домену не загружаются, потому что не задан Client ID Brandfetch.
       institution_domain_settings_link: Задать в настройках Self-Hosting
       logo_label: Иконка
-      logo_hint: Загрузите свою иконку или возьмите её с сайта учреждения. Она заменяет логотип Brandfetch.
-      fetch_logo: Иконка с сайта
+      logo_hint: Или загрузите свою картинку PNG, JPEG, GIF, WebP или ICO до 1 МБ. Она заменяет логотип Brandfetch.
+      pick_logo: Подобрать иконку
+      refresh_logo: Обновить
       remove_logo: Удалить иконку
       institution_name_label: Название учреждения
       institution_name_placeholder: например, Сбербанк
@@ -100,8 +101,28 @@ ru:
       description: Выберите, какого провайдера вы хотите использовать для связи %{account_name}
       no_providers: В настоящее время провайдеры не настроены
       title: Выберите провайдера для связи
+    logo_caption:
+      brandfetch: Из Brandfetch
+      duckduckgo: Из DuckDuckGo
+      google: Из Google
+      none: Иконки пока нет
+      uploaded: Загружена вами
+      yandex: Из Яндекса
+    logo_options:
+      choose: Выбрать
+      current: сейчас
+      empty: Для этого домена иконок не нашлось. Загрузите свою в форме счёта.
+      hint: Иконки берутся из открытых сервисов, которые собирают собственные иконки сайтов.
+      size: "%{size} px"
+      sources:
+        brandfetch: Brandfetch
+        duckduckgo: DuckDuckGo
+        google: Google
+        yandex: Яндекс
+      stored: Сохранённая иконка
+      title: Подбор иконки
     fetch_logo:
-      success: Иконка загружена с сайта учреждения
+      success: Иконка обновлена
       not_found: Для этого домена иконка не найдена. Загрузите свою.
     set_default:
       depository_only: По умолчанию можно установить только денежные счета и счета

@@ -7,38 +7,52 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
 
   setup do
     @account = accounts(:depository)
-    @account.update!(institution_domain: "tbank.ru")
+    @account.update_columns(institution_domain: "tbank.ru")
     stub_request(:get, YANDEX_URL).to_return(status: 404)
   end
 
-  test "attaches the largest icon the favicon services return" do
+  test "lists the real icons of every service, largest first" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(64))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: ico(128))
+    stub_request(:get, YANDEX_URL).to_return(status: 200, body: png(16))
+
+    candidates = Account::LogoFetcher.new(@account).candidates
+
+    assert_equal [ [ "duckduckgo", 128 ], [ "google", 64 ] ], candidates.map { |icon| [ icon.source, icon.size ] }
+  end
+
+  test "attaches the largest icon and remembers it was picked automatically" do
     stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(64))
     stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: ico(128))
 
-    assert Account::LogoFetcher.new(@account).fetch
+    assert Account::LogoFetcher.new(@account).fetch(auto: true)
 
-    assert @account.reload.logo.attached?
+    @account.reload
     assert_equal ico(128).bytesize, @account.logo.blob.byte_size
     assert_equal "tbank.ru.ico", @account.logo.filename.to_s
+    assert_equal "duckduckgo", @account.logo_source
+    assert @account.logo_auto?
   end
 
-  test "uses Yandex when it has the only real icon" do
-    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(16))
-    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
+  test "attaches the chosen source and stops preferring Brandfetch" do
+    @account.update_columns(prefer_brandfetch_logo: true)
     stub_request(:get, YANDEX_URL).to_return(status: 200, body: png(120))
 
-    assert Account::LogoFetcher.new(@account).fetch
+    assert Account::LogoFetcher.new(@account).fetch(source: "yandex")
 
-    assert_equal png(120).bytesize, @account.reload.logo.blob.byte_size
+    @account.reload
+    assert_equal "yandex", @account.logo_source
+    assert_not @account.logo_auto?
+    assert_not @account.prefer_brandfetch_logo?
+    assert_not_requested :get, GOOGLE_URL
   end
 
   test "follows the favicon service redirect" do
     stub_request(:get, GOOGLE_URL)
-      .to_return(status: 301, headers: { "Location" => "https://t3.gstatic.com/faviconV2?url=http://tbank.ru&size=128" })
-    stub_request(:get, "https://t3.gstatic.com/faviconV2?url=http://tbank.ru&size=128").to_return(status: 200, body: png(128))
-    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
+      .to_return(status: 301, headers: { "Location" => "https://t3.gstatic.com/faviconV2?url=http://tbank.ru&size=256" })
+    stub_request(:get, "https://t3.gstatic.com/faviconV2?url=http://tbank.ru&size=256").to_return(status: 200, body: png(128))
 
-    assert Account::LogoFetcher.new(@account).fetch
+    assert Account::LogoFetcher.new(@account).fetch(source: "google")
 
     assert_equal png(128).bytesize, @account.reload.logo.blob.byte_size
     assert_equal "image/png", @account.logo.content_type
@@ -54,28 +68,26 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "tbank.ru.jpg", @account.logo.filename.to_s
   end
 
-  test "ignores tiny default icons" do
-    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(16))
-    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: ico(16))
-
-    assert_not Account::LogoFetcher.new(@account).fetch
-    assert_not @account.reload.logo.attached?
-  end
-
-  test "treats failed or unreadable responses as missing" do
+  test "keeps the current logo when nothing usable is found" do
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
     stub_request(:get, GOOGLE_URL).to_timeout
     stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: "<html>blocked</html>")
+    stub_request(:get, YANDEX_URL).to_return(status: 200, body: png(1))
 
     assert_not Account::LogoFetcher.new(@account).fetch
-    assert_not @account.reload.logo.attached?
+
+    assert_equal "mine.png", @account.reload.logo.filename.to_s
   end
 
-  test "does nothing without a usable institution domain" do
-    @account.update!(institution_domain: nil)
+  test "does nothing without a usable institution domain or with an unknown source" do
+    @account.update_columns(institution_domain: nil)
+    assert_empty Account::LogoFetcher.new(@account).candidates
+
+    @account.update_columns(institution_domain: "bad domain.ru")
     assert_not Account::LogoFetcher.new(@account).fetch
 
-    @account.update!(institution_domain: "bad domain.ru")
-    assert_not Account::LogoFetcher.new(@account).fetch
+    @account.update_columns(institution_domain: "tbank.ru")
+    assert_not Account::LogoFetcher.new(@account).fetch(source: "bing")
 
     assert_not_requested :get, /google|duckduckgo|yandex/
   end

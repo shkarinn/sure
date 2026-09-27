@@ -2,7 +2,7 @@ class AccountsController < ApplicationController
   include StreamExtensions
 
   before_action :set_account, only: %i[show sparkline sync set_default remove_default]
-  before_action :set_manageable_account, only: %i[fetch_logo toggle_active toggle_exclude_from_reports destroy unlink confirm_unlink select_provider]
+  before_action :set_manageable_account, only: %i[logo_options fetch_logo toggle_active toggle_exclude_from_reports destroy unlink confirm_unlink select_provider]
   before_action :ensure_linked_account, only: %i[confirm_unlink unlink]
   include Periodable
 
@@ -206,8 +206,24 @@ class AccountsController < ApplicationController
     end
   end
 
+  def logo_options
+    @logo_candidates = Account::LogoFetcher.new(@account).candidates
+  end
+
+  # Without a source, refreshes the logo with the best icon found, as the
+  # automatic fetch does. "brandfetch" and "stored" switch between Brandfetch
+  # and the stored logo without deleting it.
   def fetch_logo
-    if Account::LogoFetcher.new(@account).fetch
+    fetched = case params[:source]
+    when "brandfetch"
+      @account.brandfetch_logo_url.present? && @account.update!(prefer_brandfetch_logo: true)
+    when "stored"
+      @account.logo.attached? && @account.update!(prefer_brandfetch_logo: false)
+    else
+      Account::LogoFetcher.new(@account).fetch(source: params[:source].presence, auto: params[:source].blank?)
+    end
+
+    if fetched
       redirect_back_or_to account_path(@account), notice: t(".success")
     else
       redirect_back_or_to account_path(@account), alert: t(".not_found")
