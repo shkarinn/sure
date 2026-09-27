@@ -129,7 +129,7 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=institution-domain-hint] a", 0
   end
 
-  test "update uploads and removes the account logo" do
+  test "update uploads a logo that replaces Brandfetch" do
     @account.update!(prefer_brandfetch_logo: true)
 
     patch depository_path(@account), params: {
@@ -139,11 +139,6 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_path(@account)
     assert @account.reload.logo.attached?
     assert_not @account.prefer_brandfetch_logo?, "an upload is shown instead of Brandfetch"
-
-    patch depository_path(@account), params: { account: { remove_logo: "1" } }
-
-    assert_redirected_to account_path(@account)
-    assert_not @account.reload.logo.attached?
   end
 
   test "update rejects a logo that is not an image" do
@@ -155,14 +150,21 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_not @account.reload.logo.attached?
   end
 
-  test "edit form offers picking and refreshing the logo next to the domain" do
+  test "edit form manages the logo in its own frame next to the domain" do
     @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
 
     get edit_account_url(@account)
 
     assert_response :success
-    assert_select "[data-testid=account-logo-field] a[href=?]", logo_options_account_path(@account)
+    frame = dom_id(@account, :logo_field)
+    assert_select "turbo-frame##{frame}" do
+      assert_select "button[form=?]", dom_id(@account, :logo_options)
+      assert_select "button[form=?]", dom_id(@account, :fetch_logo)
+      assert_select "button[form=?]", dom_id(@account, :remove_logo)
+    end
+    assert_select "form[id=?][action=?][method=get][data-turbo-frame=?]", dom_id(@account, :logo_options), logo_options_account_path(@account), frame
     assert_select "form[id=?][action=?]", dom_id(@account, :fetch_logo), fetch_logo_account_path(@account)
-    assert_select "[data-testid=account-logo-field] button[form=?]", dom_id(@account, :fetch_logo)
+    assert_select "form[id=?][action=?]", dom_id(@account, :remove_logo), remove_logo_account_path(@account)
   end
 end

@@ -739,22 +739,28 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_url(accounts(:credit_card))
   end
 
-  test "logo_options shows the icons found and Brandfetch" do
+  test "logo_options shows the icons found and Brandfetch inside the logo frame" do
     Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
-    @account.update!(institution_domain: "tbank.ru")
-    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "tbank.ru.png",
-                         metadata: { "logo_source" => "google", "logo_auto" => true })
-    icons = [ Account::LogoFetcher::Icon.new("google", "\x89PNG".b, 180, "image/png", "png"),
-              Account::LogoFetcher::Icon.new("yandex", "\x89PNG".b, 120, "image/png", "png") ]
+    @account.update!(institution_domain: "krungsri.com")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "krungsri.com.png",
+                         metadata: { "logo_source" => "yandex", "logo_key" => "yandex", "logo_auto" => true })
+    icons = [ logo_icon("appstore:123", "appstore", 512, name: "krungsri"), logo_icon("yandex", "yandex", 120) ]
     Account::LogoFetcher.any_instance.stubs(:candidates).returns(icons)
 
-    get logo_options_account_url(@account)
+    get logo_options_account_url(@account), headers: { "Turbo-Frame" => dom_id(@account, :logo_field) }
 
     assert_response :success
-    assert_select "button[name=source][value=google]", count: 0, message: "the current icon has no choose button"
-    assert_select "button[name=source][value=yandex]"
+    assert_select "turbo-frame##{dom_id(@account, :logo_field)}"
+    assert_select "button[name=source][value='appstore:123'][title=krungsri]:not([disabled])"
+    assert_select "button[name=source][value=yandex][disabled]", 1, "the current icon cannot be chosen again"
     assert_select "button[name=source][value=brandfetch]"
-    assert_select "img[src^='data:image/png;base64,']"
+    assert_select "img[src^='data:image/png;base64,']", 2
+  end
+
+  test "logo_options outside the frame goes to the account" do
+    get logo_options_account_url(@account)
+
+    assert_redirected_to account_url(@account)
   end
 
   test "logo_options requires write permission" do
@@ -762,6 +768,39 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
 
     get logo_options_account_url(accounts(:credit_card))
     assert_redirected_to account_url(accounts(:credit_card))
+  end
+
+  test "fetch_logo updates only the logo frame" do
+    @account.update!(institution_domain: "krungsri.com")
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "appstore:123", auto: false).returns(true)
+
+    post fetch_logo_account_url(@account), params: { source: "appstore:123" }, as: :turbo_stream
+
+    assert_response :success
+    assert_select "turbo-stream[action=replace][target=?]", dom_id(@account, :logo_field)
+    assert_includes response.body, I18n.t("accounts.fetch_logo.success")
+  end
+
+  test "remove_logo deletes the stored logo in place" do
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    @account.update!(prefer_brandfetch_logo: true)
+
+    delete remove_logo_account_url(@account), as: :turbo_stream
+
+    assert_response :success
+    assert_select "turbo-stream[action=replace][target=?]", dom_id(@account, :logo_field)
+    assert_not @account.reload.logo.attached?
+    assert_not @account.prefer_brandfetch_logo?
+  end
+
+  test "remove_logo requires write permission" do
+    sign_in users(:family_member)
+    accounts(:credit_card).logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+
+    delete remove_logo_account_url(accounts(:credit_card))
+
+    assert_redirected_to account_url(accounts(:credit_card))
+    assert accounts(:credit_card).reload.logo.attached?
   end
 
   test "select_provider shows available providers" do
@@ -966,6 +1005,11 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "a[href=?]", edit_plaid_item_path(item, add_accounts: true), count: 0
   end
+
+  private
+    def logo_icon(key, source, size, name: nil)
+      Account::LogoFetcher::Icon.new(key:, source:, name:, body: "\x89PNG".b, size:, content_type: "image/png", extension: "png")
+    end
 end
 
 class AccountsControllerSimplefinCtaTest < ActionDispatch::IntegrationTest

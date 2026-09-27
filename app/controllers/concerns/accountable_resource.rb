@@ -42,7 +42,7 @@ module AccountableResource
     end || (Time.zone.today - 2.years)
     Account.transaction do
       @account = Current.family.accounts.create_and_sync(
-        account_params.except(:return_to, :opening_balance_date, :remove_logo).merge(owner: Current.user),
+        account_params.except(:return_to, :opening_balance_date).merge(owner: Current.user),
         opening_balance_date: opening_balance_date
       )
       @account.lock_saved_attributes!
@@ -82,8 +82,7 @@ module AccountableResource
     # Assigning a balance can fail before the normal update path assigns the
     # other submitted fields. Keep them available for the 422 form without
     # persisting them.
-    update_params = account_params.except(:return_to, :balance, :opening_balance_date, :remove_logo)
-    update_params[:logo] = nil if account_params[:remove_logo] == "1" && account_params[:logo].blank?
+    update_params = account_params.except(:return_to, :balance, :opening_balance_date)
     # An uploaded logo is meant to be seen, so it takes over from Brandfetch.
     update_params[:prefer_brandfetch_logo] = false if account_params[:logo].present?
 
@@ -159,7 +158,7 @@ module AccountableResource
         :name, :balance, :subtype, :currency, :accountable_type, :return_to,
         :opening_balance_date,
         :institution_name, :institution_domain, :notes, :exclude_from_reports,
-        :enable_category_matcher, :logo, :remove_logo,
+        :enable_category_matcher, :logo,
         accountable_attributes: self.class.permitted_accountable_attributes
       )
     end

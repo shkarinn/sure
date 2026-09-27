@@ -9,6 +9,8 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     @account = accounts(:depository)
     @account.update_columns(institution_domain: "tbank.ru")
     stub_request(:get, YANDEX_URL).to_return(status: 404)
+    stub_request(:get, /itunes\.apple\.com/).to_return(status: 200, body: { results: [] }.to_json)
+    stub_request(:get, /play\.google\.com/).to_return(status: 404)
   end
 
   test "lists the real icons of every service, largest first" do
@@ -19,6 +21,29 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     candidates = Account::LogoFetcher.new(@account).candidates
 
     assert_equal [ [ "duckduckgo", 128 ], [ "google", 64 ] ], candidates.map { |icon| [ icon.source, icon.size ] }
+  end
+
+  test "prefers an app icon of the institution over favicons" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
+    Account::LogoFetcher::AppStore.any_instance.stubs(:icons).returns([
+      Account::LogoFetcher::Icon.new(key: "appstore:1", source: "appstore", name: "T-Bank", body: png(512), size: 512, content_type: "image/png", extension: "png")
+    ])
+
+    assert Account::LogoFetcher.new(@account).fetch(auto: true)
+
+    @account.reload
+    assert_equal "appstore", @account.logo_source
+    assert_equal "appstore:1", @account.logo_key
+    assert_equal "T-Bank", @account.logo.blob.metadata["logo_name"]
+  end
+
+  test "matches app developer websites to the institution domain" do
+    assert Account::LogoFetcher.same_site?("https://www.krungsri.com/en", "krungsri.com")
+    assert Account::LogoFetcher.same_site?("https://bankffin.kz/ru", "bankffin.kz")
+    assert Account::LogoFetcher.same_site?("https://ozon.ru", "finance.ozon.ru")
+    assert_not Account::LogoFetcher.same_site?("https://notkrungsri.com", "krungsri.com")
+    assert_not Account::LogoFetcher.same_site?(nil, "krungsri.com")
   end
 
   test "attaches the largest icon and remembers it was picked automatically" do
@@ -89,7 +114,7 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     @account.update_columns(institution_domain: "tbank.ru")
     assert_not Account::LogoFetcher.new(@account).fetch(source: "bing")
 
-    assert_not_requested :get, /google|duckduckgo|yandex/
+    assert_not_requested :get, /google|duckduckgo|yandex|itunes/
   end
 
   private
