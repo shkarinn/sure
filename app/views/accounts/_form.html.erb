@@ -66,16 +66,23 @@
             <%= form.label :logo, t(".logo_label"), class: "form-field__label" %>
             <div class="flex items-center gap-3">
               <%= render "accounts/logo", account: account, size: "lg" %>
-              <%= form.file_field :logo, accept: Account::LOGO_CONTENT_TYPES.join(","), class: "form-field__input" %>
+              <p class="text-sm text-secondary"><%= account_logo_caption(account) %></p>
             </div>
-            <p class="text-xs text-secondary"><%= t(".logo_hint") %></p>
             <div class="flex flex-wrap items-center gap-3">
               <% if account.institution_domain.present? %>
-                <%= render DS::Button.new(
-                      text: t(".fetch_logo"),
+                <%= render DS::Link.new(
+                      text: t(".pick_logo"),
                       variant: :outline,
                       size: :sm,
-                      icon: "globe",
+                      icon: "images",
+                      href: logo_options_account_path(account),
+                      frame: :modal
+                    ) %>
+                <%= render DS::Button.new(
+                      text: t(".refresh_logo"),
+                      variant: :outline,
+                      size: :sm,
+                      icon: "refresh-cw",
                       type: "submit",
                       form: dom_id(account, :fetch_logo)
                     ) %>
@@ -87,6 +94,8 @@
                 </label>
               <% end %>
             </div>
+            <%= form.file_field :logo, accept: Account::LOGO_CONTENT_TYPES.join(","), class: "form-field__input" %>
+            <p class="text-xs text-secondary"><%= t(".logo_hint") %></p>
           </div>
         <% end %>
 

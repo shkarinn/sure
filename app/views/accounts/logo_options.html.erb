@@ -1,0 +1,39 @@
+<%= render DS::Dialog.new do |dialog| %>
+  <% dialog.with_header(title: t(".title"), subtitle: @account.institution_domain) %>
+
+  <% dialog.with_body do %>
+    <% options = account_logo_options(@account, @logo_candidates) %>
+
+    <% if options.empty? %>
+      <p class="text-sm text-secondary"><%= t(".empty") %></p>
+    <% else %>
+      <ul class="divide-y divide-primary">
+        <% options.each do |option| %>
+          <li class="flex items-center gap-3 py-3">
+            <%= image_tag option.src, alt: option.label, class: "w-10 h-10 shrink-0 rounded-full" %>
+            <div class="grow">
+              <p class="text-sm text-primary"><%= option.label %></p>
+              <% if option.detail || option.current %>
+                <p class="text-xs text-secondary"><%= [ option.detail, (t(".current") if option.current) ].compact.join(" · ") %></p>
+              <% end %>
+            </div>
+            <% unless option.current %>
+              <%= render DS::Button.new(
+                    text: t(".choose"),
+                    variant: :outline,
+                    size: :sm,
+                    href: fetch_logo_account_path(@account),
+                    method: :post,
+                    name: "source",
+                    value: option.source,
+                    data: { turbo_frame: "_top" }
+                  ) %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <p class="text-xs text-secondary mt-4"><%= t(".hint") %></p>
+  <% end %>
+<% end %>
