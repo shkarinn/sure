@@ -691,6 +691,32 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_url(accounts(:credit_card))
   end
 
+  test "fetch_logo attaches the icon from the institution site" do
+    Account::LogoFetcher.any_instance.expects(:fetch).returns(true)
+
+    post fetch_logo_account_url(@account)
+
+    assert_redirected_to account_url(@account)
+    assert_equal I18n.t("accounts.fetch_logo.success"), flash[:notice]
+  end
+
+  test "fetch_logo reports when no icon was found" do
+    Account::LogoFetcher.any_instance.expects(:fetch).returns(false)
+
+    post fetch_logo_account_url(@account)
+
+    assert_redirected_to account_url(@account)
+    assert_equal I18n.t("accounts.fetch_logo.not_found"), flash[:alert]
+  end
+
+  test "fetch_logo requires write permission" do
+    sign_in users(:family_member)
+    Account::LogoFetcher.any_instance.expects(:fetch).never
+
+    post fetch_logo_account_url(accounts(:credit_card))
+    assert_redirected_to account_url(accounts(:credit_card))
+  end
+
   test "select_provider shows available providers" do
     get select_provider_account_url(@account)
     assert_response :success

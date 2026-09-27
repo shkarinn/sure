@@ -57,6 +57,10 @@ ru:
       institution_domain_hint: Используется, чтобы показать логотип учреждения.
       institution_domain_missing_logo_key_hint: Логотипы по домену не загружаются, потому что не задан Client ID Brandfetch.
       institution_domain_settings_link: Задать в настройках Self-Hosting
+      logo_label: Иконка
+      logo_hint: Загрузите свою иконку или возьмите её с сайта учреждения. Она заменяет логотип Brandfetch.
+      fetch_logo: Иконка с сайта
+      remove_logo: Удалить иконку
       institution_name_label: Название учреждения
       institution_name_placeholder: например, Сбербанк
       name_label: Название счёта
@@ -96,6 +100,9 @@ ru:
       description: Выберите, какого провайдера вы хотите использовать для связи %{account_name}
       no_providers: В настоящее время провайдеры не настроены
       title: Выберите провайдера для связи
+    fetch_logo:
+      success: Иконка загружена с сайта учреждения
+      not_found: Для этого домена иконка не найдена. Загрузите свою.
     set_default:
       depository_only: По умолчанию можно установить только денежные счета и счета
         кредитных карт.

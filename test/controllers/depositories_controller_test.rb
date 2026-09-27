@@ -2,6 +2,7 @@ require "test_helper"
 
 class DepositoriesControllerTest < ActionDispatch::IntegrationTest
   include AccountableResourceInterfaceTest
+  include ActionView::RecordIdentifier
 
   setup do
     sign_in @user = users(:family_admin)
@@ -126,5 +127,38 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-testid=institution-domain-hint]", text: I18n.t("accounts.form.institution_domain_hint")
     assert_select "[data-testid=institution-domain-hint] a", 0
+  end
+
+  test "update uploads and removes the account logo" do
+    patch depository_path(@account), params: {
+      account: { logo: fixture_file_upload("square-placeholder.png", "image/png") }
+    }
+
+    assert_redirected_to account_path(@account)
+    assert @account.reload.logo.attached?
+
+    patch depository_path(@account), params: { account: { remove_logo: "1" } }
+
+    assert_redirected_to account_path(@account)
+    assert_not @account.reload.logo.attached?
+  end
+
+  test "update rejects a logo that is not an image" do
+    patch depository_path(@account), params: {
+      account: { logo: fixture_file_upload("test.txt", "text/plain") }
+    }
+
+    assert_response :unprocessable_entity
+    assert_not @account.reload.logo.attached?
+  end
+
+  test "edit form offers fetching the logo from the institution site" do
+    @account.update!(institution_domain: "tbank.ru")
+
+    get edit_account_url(@account)
+
+    assert_response :success
+    assert_select "form[id=?][action=?]", dom_id(@account, :fetch_logo), fetch_logo_account_path(@account)
+    assert_select "button[form=?]", dom_id(@account, :fetch_logo)
   end
 end

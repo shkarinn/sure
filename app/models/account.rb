@@ -100,7 +100,11 @@ class Account < ApplicationRecord
       .distinct
   }
 
+  LOGO_CONTENT_TYPES = %w[image/png image/jpeg image/gif image/webp image/vnd.microsoft.icon image/x-icon].freeze
+  LOGO_MAX_SIZE = 1.megabyte
+
   has_one_attached :logo, dependent: :purge_later
+  validate :logo_is_small_raster_image, if: -> { logo.attached? }
 
   # People paste whole URLs ("https://www.tbank.ru/") into the domain field,
   # but the Brandfetch logo URL needs the bare host ("tbank.ru").
@@ -568,14 +572,16 @@ class Account < ApplicationRecord
   end
 
   def logo_url
-    if institution_domain.present? && Setting.brand_fetch_client_id.present?
+    # An uploaded or fetched logo is the user's explicit choice, so it wins over Brandfetch.
+    # A rejected upload re-rendered in the form is attached but unsaved and has no URL yet.
+    if logo.attached? && logo.blob.persisted?
+      Rails.application.routes.url_helpers.rails_blob_path(logo, only_path: true)
+    elsif institution_domain.present? && Setting.brand_fetch_client_id.present?
       logo_size = Setting.brand_fetch_logo_size
 
       "https://cdn.brandfetch.io/#{institution_domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
     elsif provider&.logo_url.present?
       provider.logo_url
-    elsif logo.attached?
-      Rails.application.routes.url_helpers.rails_blob_path(logo, only_path: true)
     end
   end
 
@@ -736,6 +742,17 @@ class Account < ApplicationRecord
   end
 
   private
+
+    # SVG is excluded: it can carry scripts and is not served inline anyway.
+    def logo_is_small_raster_image
+      unless logo.content_type.in?(LOGO_CONTENT_TYPES)
+        errors.add(:logo, :invalid_content_type)
+      end
+
+      if logo.blob.byte_size > LOGO_MAX_SIZE
+        errors.add(:logo, :too_large, max_size: LOGO_MAX_SIZE / 1.megabyte)
+      end
+    end
 
     def assign_default_owner
       return if owner.present?

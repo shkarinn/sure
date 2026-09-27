@@ -952,4 +952,22 @@ class AccountTest < ActiveSupport::TestCase
 
     assert_match %r{\Ahttps://cdn\.brandfetch\.io/tbank\.ru/icon/}, @account.logo_url
   end
+
+  test "an uploaded logo wins over the Brandfetch icon" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "logo.png")
+
+    assert_equal Rails.application.routes.url_helpers.rails_blob_path(@account.logo, only_path: true), @account.logo_url
+  end
+
+  test "logo must be a small raster image" do
+    @account.logo = { io: file_fixture("test.txt").open, filename: "logo.txt" }
+    assert_not @account.valid?
+    assert @account.errors.added?(:logo, :invalid_content_type)
+
+    @account.logo = { io: StringIO.new("\x89PNG\r\n\x1a\n".b + "\x00" * Account::LOGO_MAX_SIZE), filename: "logo.png", content_type: "image/png" }
+    assert_not @account.valid?
+    assert @account.errors.added?(:logo, :too_large, max_size: 1)
+  end
 end

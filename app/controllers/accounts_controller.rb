@@ -2,7 +2,7 @@ class AccountsController < ApplicationController
   include StreamExtensions
 
   before_action :set_account, only: %i[show sparkline sync set_default remove_default]
-  before_action :set_manageable_account, only: %i[toggle_active toggle_exclude_from_reports destroy unlink confirm_unlink select_provider]
+  before_action :set_manageable_account, only: %i[fetch_logo toggle_active toggle_exclude_from_reports destroy unlink confirm_unlink select_provider]
   before_action :ensure_linked_account, only: %i[confirm_unlink unlink]
   include Periodable
 
@@ -203,6 +203,14 @@ class AccountsController < ApplicationController
     if stale?(etag: etag_key, last_modified: @account.family.latest_sync_completed_at)
       @sparkline_series = @account.sparkline_series
       render layout: false
+    end
+  end
+
+  def fetch_logo
+    if Account::LogoFetcher.new(@account).fetch
+      redirect_back_or_to account_path(@account), notice: t(".success")
+    else
+      redirect_back_or_to account_path(@account), alert: t(".not_found")
     end
   end
 
