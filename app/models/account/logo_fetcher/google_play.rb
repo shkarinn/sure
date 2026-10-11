@@ -31,7 +31,8 @@ class Account::LogoFetcher::GooglePlay
     return unless Account::LogoFetcher.same_site?(developer_url, @domain) && icon_url.to_s.match?(ICON_FORMAT)
 
     name = meta(page, "property", "og:title").to_s.delete_suffix(" - Apps on Google Play").presence
-    @client.icon("#{icon_url}=s512", key: "googleplay:#{package}", source: "googleplay", name: name)
+    @client.icon("#{icon_url}=s512", key: "googleplay:#{package}", source: "googleplay", name: name,
+                                     auto: Account::LogoFetcher.own_site?(developer_url, @domain))
   end
 
   private

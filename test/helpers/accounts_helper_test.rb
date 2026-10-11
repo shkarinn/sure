@@ -17,7 +17,11 @@ class AccountsHelperTest < ActionView::TestCase
     assert_not_equal without_key, with_key
 
     Setting.stubs(:brand_fetch_client_id).returns("other-client-id")
-    assert_not_equal with_key, account_sidebar_tabs_cache_key(family: @family, active_tab: "all", mobile: false)
+    other_key = account_sidebar_tabs_cache_key(family: @family, active_tab: "all", mobile: false)
+    assert_not_equal with_key, other_key
+
+    Setting.stubs(:brand_fetch_logo_size).returns(120)
+    assert_not_equal other_key, account_sidebar_tabs_cache_key(family: @family, active_tab: "all", mobile: false)
   end
 
   test "logo caption names where the shown icon comes from" do

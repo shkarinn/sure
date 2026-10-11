@@ -48,9 +48,10 @@ module AccountsHelper
       # (this partial renders with skip_digest: true, so the template digest
       # would not otherwise reflect the change).
       Current.user&.always_expanded_account_groups&.sort,
-      # Brandfetch logo URLs carry the client id, so setting, changing or
-      # removing it in Settings must bust the cached sidebar too.
-      Digest::SHA256.hexdigest(Setting.brand_fetch_client_id.to_s)
+      # Brandfetch logo URLs carry the client id and the logo size, so
+      # changing either in Settings must bust the cached sidebar too.
+      Digest::SHA256.hexdigest(Setting.brand_fetch_client_id.to_s),
+      Setting.brand_fetch_logo_size
     ]
   end
 

@@ -26,12 +26,12 @@ class Account::LogoFetcher::Client
     nil
   end
 
-  def icon(url, key:, source:, name: nil)
+  def icon(url, key:, source:, name: nil, auto: true)
     body = get(url)&.body&.b
     return if body.nil? || body.bytesize > Account::LOGO_MAX_SIZE
 
     size, content_type, extension = image_format(body)
-    Account::LogoFetcher::Icon.new(key:, source:, name:, body:, size:, content_type:, extension:) if size.to_i >= MIN_SIZE
+    Account::LogoFetcher::Icon.new(key:, source:, name:, body:, size:, content_type:, extension:, auto:) if size.to_i >= MIN_SIZE
   end
 
   # Runs the lambdas in threads (the work is waiting on HTTP) and returns their results in order.

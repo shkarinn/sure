@@ -51,6 +51,19 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "mine.png", @account.reload.logo.filename.to_s
   end
 
+  test "an automatic fetch skips apps matched only by a parent domain" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
+    Account::LogoFetcher::GooglePlay.any_instance.stubs(:icons).returns([
+      Account::LogoFetcher::Icon.new(key: "googleplay:ru.yandex.maps", source: "googleplay", name: "Maps", body: png(512), size: 512,
+                                     content_type: "image/png", extension: "png", auto: false)
+    ])
+
+    assert Account::LogoFetcher.new(@account).fetch(auto: true)
+
+    assert_equal "google", @account.reload.logo_source
+  end
+
   test "never asks RuStore when fetching automatically" do
     stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
     stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
@@ -65,6 +78,8 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert Account::LogoFetcher.same_site?("https://www.krungsri.com/en", "krungsri.com")
     assert Account::LogoFetcher.same_site?("https://bankffin.kz/ru", "bankffin.kz")
     assert Account::LogoFetcher.same_site?("https://ozon.ru", "finance.ozon.ru")
+    assert_not Account::LogoFetcher.own_site?("https://ozon.ru", "finance.ozon.ru"), "a parent may be shared"
+    assert Account::LogoFetcher.own_site?("https://app.krungsri.com", "krungsri.com")
     assert_not Account::LogoFetcher.same_site?("https://notkrungsri.com", "krungsri.com")
     assert_not Account::LogoFetcher.same_site?(nil, "krungsri.com")
   end

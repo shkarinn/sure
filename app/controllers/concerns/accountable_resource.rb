@@ -135,6 +135,9 @@ module AccountableResource
     # committed, and an upload in the same submit wins over it.
     if logo_choice && account_params[:logo].blank? && !@account.choose_logo(logo_choice)
       flash[:alert] = t("accounts.update.logo_not_applied")
+      # The choice held back the automatic fetch; with it gone, that fetch
+      # replaces or drops an automatic icon left from an earlier domain.
+      AccountLogoFetchJob.perform_later(@account)
     end
 
     redirect_back_or_to account_path(@account), notice: t("accounts.update.success", type: accountable_type.name.underscore.humanize)

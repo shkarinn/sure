@@ -15,13 +15,28 @@ class Account::LogoFetcher
 
   # `key` identifies the icon for fetch(source:): a favicon service name, or
   # "appstore:<track id>", "googleplay:<package>" or "rustore:<package>" for an app.
-  Icon = Data.define(:key, :source, :name, :body, :size, :content_type, :extension)
+  # `auto` is false for icons only offered in the picker, never picked automatically.
+  Icon = Data.define(:key, :source, :name, :body, :size, :content_type, :extension, :auto) do
+    def initialize(auto: true, **attributes)
+      super
+    end
+  end
 
   attr_reader :account
 
+  # The developer site is the institution's domain or one of its subdomains.
+  def self.own_site?(host, domain)
+    host = Account.normalize_institution_domain(host)
+    host.present? && (host == domain || host.end_with?(".#{domain}"))
+  end
+
+  # Also a parent of the domain: Ozon Bank's apps list ozon.ru for
+  # finance.ozon.ru. A parent can be shared by unrelated sites (yandex.ru
+  # for every Yandex app, github.io), so such apps are offered in the picker
+  # but never picked automatically.
   def self.same_site?(host, domain)
     host = Account.normalize_institution_domain(host)
-    host.present? && (host == domain || host.end_with?(".#{domain}") || domain.end_with?(".#{host}"))
+    own_site?(host, domain) || (host.present? && domain.end_with?(".#{host}"))
   end
 
   def initialize(account)
@@ -41,15 +56,15 @@ class Account::LogoFetcher
     icons.each_with_index.sort_by { |icon, index| [ -icon.size, index ] }.map(&:first)
   end
 
-  # Attaches the icon with `source` key, or the largest one outside RuStore
-  # when no source is given. `auto` marks the icon as picked by Sure,
+  # Attaches the icon with `source` key, or the largest one fit for an
+  # automatic pick when no source is given. `auto` marks the icon as picked by Sure,
   # so later automatic fetches may replace it. Returns true when an icon was
   # attached.
   def fetch(source: nil, auto: false)
     return false unless domain
 
     fetched_for = domain
-    icon = source ? icon_for(source) : candidates(for_picker: false).first
+    icon = source ? icon_for(source) : candidates(for_picker: false).find(&:auto)
     return false unless icon
 
     # The search takes seconds. Under the row lock, which the account form's

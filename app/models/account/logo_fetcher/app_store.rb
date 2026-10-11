@@ -39,7 +39,8 @@ class Account::LogoFetcher::AppStore
       url = app["artworkUrl512"].to_s
       return unless URI.parse(url).then { |uri| uri.scheme == "https" && uri.host.to_s.match?(ARTWORK_HOST) }
 
-      @client.icon(url, key: "appstore:#{app["trackId"]}", source: "appstore", name: app["trackName"])
+      @client.icon(url, key: "appstore:#{app["trackId"]}", source: "appstore", name: app["trackName"],
+                        auto: Account::LogoFetcher.own_site?(app["sellerUrl"], @domain))
     rescue URI::InvalidURIError
       nil
     end
