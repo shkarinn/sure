@@ -70,7 +70,7 @@ module AccountsHelper
 
   # Tiles of the logo picker: the icons found for the domain, the stored logo
   # while Brandfetch is shown instead, and Brandfetch when configured.
-  # `source` is what fetch_logo receives when the tile is chosen.
+  # `source` is what Account#choose_logo receives when the form is saved.
   def account_logo_options(account, candidates)
     shows_stored = !account.prefer_brandfetch_logo?
 

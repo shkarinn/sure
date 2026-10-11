@@ -62,10 +62,15 @@
         </div>
 
         <% if account.persisted? %>
-          <div class="space-y-2">
+          <div class="space-y-2"
+               data-controller="account-logo-picker"
+               data-account-logo-picker-pending-value="<%= t("accounts.logo_field.pending") %>"
+               data-account-logo-picker-removal-value="<%= t("accounts.logo_field.removal") %>">
             <%= form.label :logo, t(".logo_label"), class: "form-field__label" %>
             <%= render "accounts/logo_field", account: account %>
-            <%= form.file_field :logo, accept: Account::LOGO_CONTENT_TYPES.join(","), class: "form-field__input" %>
+            <%= hidden_field_tag "#{form.object_name}[logo_choice]", nil, id: nil, data: { account_logo_picker_target: "choice" } %>
+            <%= form.file_field :logo, accept: Account::LOGO_CONTENT_TYPES.join(","), class: "form-field__input",
+                                data: { account_logo_picker_target: "file", action: "account-logo-picker#showFile" } %>
             <p class="text-xs text-secondary"><%= t(".logo_hint") %></p>
           </div>
         <% end %>

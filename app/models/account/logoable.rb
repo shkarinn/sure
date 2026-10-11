@@ -49,6 +49,20 @@ module Account::Logoable
     logo.attached? && logo.blob.metadata["logo_auto"] == true
   end
 
+  # Applies the icon chosen in the account form: an Account::LogoFetcher key,
+  # "brandfetch" or "stored" to switch what is shown without deleting the
+  # stored logo, or "remove". Returns false when the choice could not apply.
+  def choose_logo(choice)
+    case choice
+    when "brandfetch" then brandfetch_logo_url.present? && update!(prefer_brandfetch_logo: true)
+    when "stored" then logo.attached? && update!(prefer_brandfetch_logo: false)
+    when "remove"
+      logo.purge if logo.attached?
+      update!(prefer_brandfetch_logo: false)
+    else Account::LogoFetcher.new(self).fetch(source: choice)
+    end
+  end
+
   # Sure only picks logos nobody chose: an empty slot or its own earlier pick.
   def logo_auto_fetchable?
     institution_domain.present? && !prefer_brandfetch_logo? && (!logo.attached? || logo_auto?)

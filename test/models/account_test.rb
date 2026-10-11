@@ -996,6 +996,35 @@ class AccountTest < ActiveSupport::TestCase
     assert_equal Rails.application.routes.url_helpers.rails_blob_path(@account.logo, only_path: true), @account.logo_url
   end
 
+  test "choose_logo switches between Brandfetch and the stored logo without deleting it" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    Account::LogoFetcher.any_instance.expects(:fetch).never
+
+    assert @account.choose_logo("brandfetch")
+    assert @account.reload.prefer_brandfetch_logo?
+
+    assert @account.choose_logo("stored")
+    assert_not @account.reload.prefer_brandfetch_logo?
+    assert @account.logo.attached?
+  end
+
+  test "choose_logo downloads a picked icon by its key" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "appstore:123").returns(true)
+
+    assert @account.choose_logo("appstore:123")
+  end
+
+  test "choose_logo removes the stored logo" do
+    @account.update!(prefer_brandfetch_logo: true)
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+
+    assert @account.choose_logo("remove")
+    assert_not @account.reload.logo.attached?
+    assert_not @account.prefer_brandfetch_logo?
+  end
+
   test "only empty or automatically picked logos are fetched automatically" do
     @account.update!(institution_domain: "tbank.ru")
     assert @account.logo_auto_fetchable?

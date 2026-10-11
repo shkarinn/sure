@@ -664,8 +664,6 @@ Rails.application.routes.draw do
     member do
       post :sync
       get :logo_options
-      post :fetch_logo
-      delete :remove_logo
       get :sparkline
       patch :toggle_active
       patch :toggle_exclude_from_reports

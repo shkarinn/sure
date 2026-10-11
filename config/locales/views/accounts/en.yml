@@ -41,8 +41,9 @@ en:
       current: current
       empty: No icons found for this domain. Upload your own below.
       pick: Pick icon
-      refresh: Refresh
+      pending: Applied when you save
       remove: Remove
+      removal: Removed when you save
       searching: Searching…
     logo_options:
       size: "%{size} px"
@@ -54,11 +55,6 @@ en:
         googleplay: Google Play
         yandex: Yandex
       stored: Saved icon
-    remove_logo:
-      success: Icon removed
-    fetch_logo:
-      success: Icon updated
-      not_found: No icon found for this domain. Upload one instead.
     set_default:
       depository_only: "Only cash and credit card accounts can be set as default."
     destroy:
@@ -173,6 +169,7 @@ en:
         include_in_reports: Include in reports
     update:
       success: "%{type} account updated"
+      logo_not_applied: The account was saved, but the chosen icon could not be downloaded. Try again or upload your own.
     sidebar:
       missing_data: Missing historical data
       missing_data_description: "%{product} uses third party providers to fetch historical exchange rates, security prices, and more. This data is required to calculate accurate historical account balances."

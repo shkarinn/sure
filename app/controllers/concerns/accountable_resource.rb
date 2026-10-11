@@ -127,6 +127,13 @@ module AccountableResource
       return
     end
 
+    # The icon picked in the form downloads only on save, after the account
+    # committed, and an upload in the same submit wins over it.
+    logo_choice = params.dig(:account, :logo_choice).presence
+    if logo_choice && account_params[:logo].blank? && !@account.choose_logo(logo_choice)
+      flash[:alert] = t("accounts.update.logo_not_applied")
+    end
+
     redirect_back_or_to account_path(@account), notice: t("accounts.update.success", type: accountable_type.name.underscore.humanize)
   end
 

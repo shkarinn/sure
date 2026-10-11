@@ -1,0 +1,87 @@
+import { Controller } from "@hotwired/stimulus";
+
+// Previews the icon chosen in the account form. Nothing is saved until the
+// form is submitted: a picked or removed icon travels in a hidden field, an
+// upload in the file field.
+export default class extends Controller {
+  static targets = ["preview", "image", "caption", "choice", "file", "option"];
+  static values = { pending: String, removal: String };
+
+  // The picker reloads the icon block from the server, which shows the saved
+  // icon, so an earlier choice starts over; a selected file is kept.
+  previewTargetConnected() {
+    this.savedImage = [...this.imageTarget.childNodes].map((node) =>
+      node.cloneNode(true),
+    );
+    this.savedCaption = this.captionTarget.textContent;
+    this.choiceTarget.value = "";
+    this.showFile();
+  }
+
+  choose({ params: { choice, label }, currentTarget }) {
+    this.clearFile();
+
+    if (choice) {
+      this.choiceTarget.value = choice;
+      this.showImage(
+        currentTarget.querySelector("img").src,
+        `${label} · ${this.pendingValue}`,
+      );
+    } else {
+      this.restore();
+    }
+
+    this.highlight(currentTarget);
+  }
+
+  remove() {
+    this.clearFile();
+    this.restore();
+    this.choiceTarget.value = "remove";
+    this.imageTarget.classList.add("opacity-40");
+    this.captionTarget.textContent = this.removalValue;
+    this.highlight(null);
+  }
+
+  showFile() {
+    const file = this.hasFileTarget && this.fileTarget.files[0];
+    if (!file) return;
+
+    this.choiceTarget.value = "";
+    this.showImage(
+      URL.createObjectURL(file),
+      `${file.name} · ${this.pendingValue}`,
+    );
+    this.highlight(null);
+  }
+
+  showImage(src, caption) {
+    const image = document.createElement("img");
+    image.src = src;
+    image.className = "shrink-0 rounded-full w-10 h-10 object-contain";
+    this.imageTarget.classList.remove("opacity-40");
+    this.imageTarget.replaceChildren(image);
+    this.captionTarget.textContent = caption;
+  }
+
+  restore() {
+    this.choiceTarget.value = "";
+    this.imageTarget.classList.remove("opacity-40");
+    this.imageTarget.replaceChildren(
+      ...this.savedImage.map((node) => node.cloneNode(true)),
+    );
+    this.captionTarget.textContent = this.savedCaption;
+  }
+
+  clearFile() {
+    if (this.hasFileTarget) this.fileTarget.value = "";
+  }
+
+  highlight(selected) {
+    for (const option of this.optionTargets) {
+      const active = option === selected;
+      option.classList.toggle("border-primary", active);
+      option.classList.toggle("border-secondary", !active);
+    }
+  }
+}

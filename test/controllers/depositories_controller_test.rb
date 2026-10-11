@@ -150,7 +150,47 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_not @account.reload.logo.attached?
   end
 
-  test "edit form manages the logo in its own frame next to the domain" do
+  test "update applies the icon chosen in the form" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "appstore:123").returns(true)
+
+    patch depository_path(@account), params: { account: { name: "Renamed", logo_choice: "appstore:123" } }
+
+    assert_redirected_to account_path(@account)
+    assert_equal "Renamed", @account.reload.name
+    assert_nil flash[:alert]
+  end
+
+  test "update saves the account when the chosen icon cannot be downloaded" do
+    Account::LogoFetcher.any_instance.expects(:fetch).returns(false)
+
+    patch depository_path(@account), params: { account: { name: "Renamed", logo_choice: "yandex" } }
+
+    assert_redirected_to account_path(@account)
+    assert_equal "Renamed", @account.reload.name
+    assert_equal I18n.t("accounts.update.logo_not_applied"), flash[:alert]
+  end
+
+  test "update lets an upload win over an icon chosen in the same form" do
+    Account::LogoFetcher.any_instance.expects(:fetch).never
+
+    patch depository_path(@account), params: {
+      account: { logo: fixture_file_upload("square-placeholder.png", "image/png"), logo_choice: "yandex" }
+    }
+
+    assert_redirected_to account_path(@account)
+    assert @account.reload.logo.attached?
+  end
+
+  test "update leaves the icon alone when the form fails" do
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+
+    patch depository_path(@account), params: { account: { name: "", logo_choice: "remove" } }
+
+    assert_response :unprocessable_entity
+    assert @account.reload.logo.attached?
+  end
+
+  test "edit form previews the icon and keeps the choice for saving" do
     @account.update!(institution_domain: "tbank.ru")
     @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
 
@@ -158,13 +198,14 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     frame = dom_id(@account, :logo_field)
-    assert_select "turbo-frame##{frame}" do
-      assert_select "button[form=?]", dom_id(@account, :logo_options)
-      assert_select "button[form=?]", dom_id(@account, :fetch_logo)
-      assert_select "button[form=?]", dom_id(@account, :remove_logo)
+    assert_select "[data-controller=account-logo-picker]" do
+      assert_select "turbo-frame##{frame}" do
+        assert_select "button[form=?]", dom_id(@account, :logo_options)
+        assert_select "button[type=button][data-action='account-logo-picker#remove']"
+      end
+      assert_select "input[type=hidden][name='account[logo_choice]'][data-account-logo-picker-target=choice]"
+      assert_select "input[type=file][name='account[logo]'][data-account-logo-picker-target=file]"
     end
     assert_select "form[id=?][action=?][method=get][data-turbo-frame=?]", dom_id(@account, :logo_options), logo_options_account_path(@account), frame
-    assert_select "form[id=?][action=?]", dom_id(@account, :fetch_logo), fetch_logo_account_path(@account)
-    assert_select "form[id=?][action=?]", dom_id(@account, :remove_logo), remove_logo_account_path(@account)
   end
 end

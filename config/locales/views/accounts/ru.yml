@@ -111,8 +111,9 @@ ru:
       current: сейчас
       empty: Для этого домена иконок не нашлось. Загрузите свою ниже.
       pick: Подобрать иконку
-      refresh: Обновить
+      pending: Применится после сохранения
       remove: Удалить
+      removal: Удалится после сохранения
       searching: Ищем…
     logo_options:
       size: "%{size} px"
@@ -124,11 +125,6 @@ ru:
         googleplay: Google Play
         yandex: Яндекс
       stored: Сохранённая иконка
-    remove_logo:
-      success: Иконка удалена
-    fetch_logo:
-      success: Иконка обновлена
-      not_found: Для этого домена иконка не найдена. Загрузите свою.
     set_default:
       depository_only: По умолчанию можно установить только денежные счета и счета
         кредитных карт.
@@ -248,6 +244,7 @@ ru:
       success: Счёт успешно отвязан. Теперь это ручной счёт.
     update:
       success: Счёт %{type} обновлён
+      logo_not_applied: Счёт сохранён, но выбранную иконку скачать не удалось. Попробуйте ещё раз или загрузите свою.
   email_confirmations:
     new:
       invalid_token: Неверная или истекшая ссылка подтверждения.
