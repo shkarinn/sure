@@ -38,6 +38,7 @@ class Account::LogoFetcher::GooglePlayTest < ActiveSupport::TestCase
     end
 
     def png(size)
-      "\x89PNG\r\n\x1a\n".b + [ 13 ].pack("N") + "IHDR" + [ size, size ].pack("NN") + "\x08\x06\x00\x00\x00".b + "\x00" * 4
+      "\x89PNG\r\n\x1a\n".b + [ 13 ].pack("N") + "IHDR" + [ size, size ].pack("NN") + "\x08\x06\x00\x00\x00".b + "\x00" * 4 +
+        [ 0 ].pack("N") + "IEND\xAEB`\x82".b
     end
 end

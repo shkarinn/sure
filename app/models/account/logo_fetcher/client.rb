@@ -4,6 +4,8 @@ class Account::LogoFetcher::Client
   # Favicon services answer unknown domains with a 16px (or 1px) placeholder.
   MIN_SIZE = 17
   MAX_REDIRECTS = 3
+  # The IEND chunk with its CRC, which closes every complete PNG.
+  PNG_END = "IEND\xAEB`\x82".b
 
   def get(url, redirects_left = MAX_REDIRECTS)
     response = connection.get(url)
@@ -45,15 +47,17 @@ class Account::LogoFetcher::Client
       @connection ||= Faraday.new(request: { open_timeout: 5, timeout: 10 })
     end
 
-    # Reads the pixel width from the file header; formats we cannot size are skipped.
+    # Reads the pixel width from the file header; formats we cannot size are
+    # skipped, and so are files cut short (no end marker), which would be
+    # stored as a broken logo.
     def image_format(body)
-      if body.start_with?("\x89PNG\r\n\x1a\n".b) && body.bytesize >= 24
+      if body.start_with?("\x89PNG\r\n\x1a\n".b) && body.byteslice(12, 4) == "IHDR" && body.end_with?(PNG_END)
         [ body.byteslice(16, 4).unpack1("N"), "image/png", "png" ]
       elsif body.start_with?("\x00\x00\x01\x00".b) && body.bytesize >= 6
         [ ico_width(body), "image/vnd.microsoft.icon", "ico" ]
-      elsif body.start_with?("GIF8") && body.bytesize >= 8
+      elsif body.start_with?("GIF8") && body.bytesize >= 8 && body.end_with?(";")
         [ body.byteslice(6, 2).unpack1("v"), "image/gif", "gif" ]
-      elsif body.start_with?("\xFF\xD8".b)
+      elsif body.start_with?("\xFF\xD8".b) && body.end_with?("\xFF\xD9".b)
         [ jpeg_width(body), "image/jpeg", "jpg" ]
       end
     end

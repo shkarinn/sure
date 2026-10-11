@@ -164,6 +164,14 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     end
   end
 
+  test "skips a PNG or JPEG cut short" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180).byteslice(0, 24))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: jpeg(128).delete_suffix("\xFF\xD9".b))
+    stub_request(:get, YANDEX_URL).to_return(status: 200, body: png(120))
+
+    assert_equal [ "yandex" ], Account::LogoFetcher.new(@account).candidates.map(&:key)
+  end
+
   test "searches the GB App Store for .uk domains" do
     @account.update_columns(institution_domain: "barclays.co.uk")
 
@@ -196,7 +204,8 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
 
   private
     def png(size)
-      "\x89PNG\r\n\x1a\n".b + [ 13 ].pack("N") + "IHDR" + [ size, size ].pack("NN") + "\x08\x06\x00\x00\x00".b + "\x00" * 4
+      "\x89PNG\r\n\x1a\n".b + [ 13 ].pack("N") + "IHDR" + [ size, size ].pack("NN") + "\x08\x06\x00\x00\x00".b + "\x00" * 4 +
+        [ 0 ].pack("N") + "IEND\xAEB`\x82".b
     end
 
     def jpeg(size)
