@@ -54,8 +54,8 @@ ru:
       exclude_from_reports: Исключить из всех отчётов
       institution_domain_label: Домен учреждения
       institution_domain_placeholder: например, sberbank.ru
-      institution_domain_hint: Используется, чтобы показать логотип учреждения.
-      institution_domain_missing_logo_key_hint: Логотипы по домену не загружаются, потому что не задан Client ID Brandfetch.
+      institution_domain_hint: Используется, чтобы найти иконку учреждения.
+      institution_domain_missing_logo_key_hint: Используется, чтобы найти иконку учреждения. Логотипы Brandfetch недоступны, потому что не задан Client ID Brandfetch.
       institution_domain_settings_link: Задать в настройках Self-Hosting
       logo_label: Иконка
       logo_hint: Или загрузите свою картинку PNG, JPEG, GIF, WebP или ICO до 1 МБ. Она заменяет логотип Brandfetch.

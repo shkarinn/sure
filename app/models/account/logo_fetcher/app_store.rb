@@ -14,8 +14,10 @@ class Account::LogoFetcher::AppStore
     @client = client
   end
 
+  # The countries are searched at once, so a slow store answers in one timeout, not three.
   def icons
-    apps = @countries.flat_map { |country| results(SEARCH_URL, term: @term, country: country, entity: "software", limit: 10) }
+    searches = @countries.map { |country| -> { results(SEARCH_URL, term: @term, country: country, entity: "software", limit: 10) } }
+    apps = @client.in_parallel(searches).flatten
     apps.uniq { |app| app["trackId"] }.select { |app| own_app?(app) }.first(MAX_APPS).filter_map { |app| icon_from(app) }
   end
 

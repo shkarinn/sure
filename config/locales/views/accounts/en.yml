@@ -77,8 +77,8 @@ en:
       institution_name_placeholder: e.g., Chase Bank
       institution_domain_label: Institution domain
       institution_domain_placeholder: e.g., chase.com
-      institution_domain_hint: Used to show the institution's logo.
-      institution_domain_missing_logo_key_hint: Logos aren't loaded from this domain because no Brandfetch client ID is configured.
+      institution_domain_hint: Used to find the institution's icon.
+      institution_domain_missing_logo_key_hint: Used to find the institution's icon. Brandfetch logos are not available because no Brandfetch client ID is configured.
       institution_domain_settings_link: Add one in Self-Hosting settings
       logo_label: Icon
       logo_hint: Or upload your own PNG, JPEG, GIF, WebP or ICO image up to 1 MB. It replaces the Brandfetch logo.
