@@ -10,6 +10,9 @@ module Account::Logoable
   included do
     has_one_attached :logo, dependent: :purge_later
     validate :logo_is_small_raster_image, if: -> { logo.attached? }
+    # The account sidebar is cached by the accounts' updated_at, which an
+    # attachment alone does not change.
+    before_save { self.updated_at = Time.current if attachment_changes.key?("logo") }
 
     # The account form saves more than once in one transaction (attribute
     # locks last), so the domain change is remembered until the commit.
@@ -82,7 +85,7 @@ module Account::Logoable
     when "stored" then logo.attached? && update!(prefer_brandfetch_logo: false)
     when "remove"
       logo.purge if logo.attached?
-      update!(prefer_brandfetch_logo: false)
+      update!(prefer_brandfetch_logo: false, updated_at: Time.current)
     else Account::LogoFetcher.new(self).fetch(source: choice)
     end
   end
@@ -113,6 +116,7 @@ module Account::Logoable
       elsif logo_auto?
         # The automatic icon belonged to the institution that was removed.
         logo.purge_later
+        touch
       end
     end
 end

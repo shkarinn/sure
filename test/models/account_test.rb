@@ -951,12 +951,14 @@ class AccountTest < ActiveSupport::TestCase
       "https://www.krungsri.com/en/personal" => "krungsri.com",
       "  HTTP://Chase.com:443/?q=1#top " => "chase.com",
       "www.example.co.uk" => "example.co.uk",
-      "sberbank.ru" => "sberbank.ru",
-      "   " => nil
+      "sberbank.ru" => "sberbank.ru"
     }.each do |input, expected|
       @account.update!(institution_domain: input)
       assert_equal expected, @account.read_attribute(:institution_domain), "for #{input.inspect}"
     end
+
+    @account.update!(institution_domain: "   ")
+    assert_nil @account.read_attribute(:institution_domain)
   end
 
   test "logo_url builds a Brandfetch URL from a legacy unnormalized domain" do
@@ -1049,6 +1051,16 @@ class AccountTest < ActiveSupport::TestCase
 
     @account.institution_domain = "sberbank.ru"
     assert_not @account.stored_logo?("google")
+  end
+
+  test "uploading or removing a logo touches the account" do
+    @account.update_columns(updated_at: 1.day.ago)
+    @account.update!(logo: { io: file_fixture("square-placeholder.png").open, filename: "mine.png", content_type: "image/png" })
+    assert_operator @account.reload.updated_at, :>, 1.hour.ago
+
+    @account.update_columns(updated_at: 1.day.ago)
+    @account.choose_logo("remove")
+    assert_operator @account.reload.updated_at, :>, 1.hour.ago
   end
 
   test "choose_logo removes the stored logo" do

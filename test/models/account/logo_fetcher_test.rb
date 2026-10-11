@@ -51,6 +51,16 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "mine.png", @account.reload.logo.filename.to_s
   end
 
+  test "attaching an icon touches the account so the cached sidebar updates" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
+    @account.update_columns(updated_at: 1.day.ago)
+
+    assert Account::LogoFetcher.new(@account).fetch(auto: true)
+
+    assert_operator @account.reload.updated_at, :>, 1.hour.ago
+  end
+
   test "an automatic fetch skips apps matched only by a parent domain" do
     stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
     stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)

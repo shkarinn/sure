@@ -67,7 +67,8 @@ class Account::LogoFetcher
     icon = source ? icon_for(source) : candidates(for_picker: false).find(&:auto)
     return false unless icon
 
-    # The search takes seconds. Under the row lock, which the account form's
+    # Touching the account busts the sidebar cache, which an attachment alone
+    # does not. The search takes seconds. Under the row lock, which the account form's
     # save also holds, an automatic fetch yields to an icon chosen or uploaded
     # meanwhile and to a domain changed meanwhile.
     account.with_lock do
@@ -80,7 +81,7 @@ class Account::LogoFetcher
           content_type: icon.content_type,
           metadata: { "logo_source" => icon.source, "logo_key" => icon.key, "logo_name" => icon.name,
                       "logo_domain" => fetched_for, "logo_auto" => auto }.compact
-        ) && account.update!(prefer_brandfetch_logo: false)
+        ) && account.update!(prefer_brandfetch_logo: false, updated_at: Time.current)
       end
     end
   end
