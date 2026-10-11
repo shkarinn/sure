@@ -34,8 +34,8 @@ module Account::Logoable
     "https://cdn.brandfetch.io/#{institution_domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
   end
 
-  # Where the stored logo came from: a favicon service, "appstore" or
-  # "googleplay", or nil for an upload.
+  # Where the stored logo came from: a favicon service, "appstore",
+  # "googleplay" or "rustore", or nil for an upload.
   def logo_source
     logo.blob.metadata["logo_source"] if logo.attached?
   end

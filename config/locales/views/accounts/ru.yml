@@ -105,6 +105,7 @@ ru:
       google: Из Google
       googleplay: Из Google Play
       none: Иконки пока нет
+      rustore: Из RuStore
       uploaded: Загружена вами
       yandex: Из Яндекса
     logo_field:
@@ -123,6 +124,7 @@ ru:
         duckduckgo: DuckDuckGo
         google: Google
         googleplay: Google Play
+        rustore: RuStore
         yandex: Яндекс
       stored: Сохранённая иконка
     set_default:

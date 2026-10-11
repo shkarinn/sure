@@ -35,6 +35,7 @@ en:
       google: From Google
       googleplay: From Google Play
       none: No icon yet
+      rustore: From RuStore
       uploaded: Uploaded by you
       yandex: From Yandex
     logo_field:
@@ -53,6 +54,7 @@ en:
         duckduckgo: DuckDuckGo
         google: Google
         googleplay: Google Play
+        rustore: RuStore
         yandex: Yandex
       stored: Saved icon
     set_default:
