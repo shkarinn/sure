@@ -22,7 +22,7 @@ class Account::LogoFetcher::RuStore
   end
 
   def icons
-    own_apps.first(MAX_APPS).filter_map { |app| icon_from(app) }
+    @client.in_parallel(own_apps.first(MAX_APPS).map { |app| -> { icon_from(app) } }).compact
   end
 
   # RuStore has no public lookup by package, so the picked app is found again

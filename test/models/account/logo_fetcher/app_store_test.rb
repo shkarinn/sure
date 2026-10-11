@@ -22,6 +22,7 @@ class Account::LogoFetcher::AppStoreTest < ActiveSupport::TestCase
     stub_request(:get, "https://itunes.apple.com/lookup?country=th&id=1").to_return(status: 200, body: { results: [ app(1, "krungsri", "https://www.krungsri.com") ] }.to_json)
     stub_request(:get, "https://itunes.apple.com/lookup?country=th&id=2").to_return(status: 200, body: { results: [ app(2, "Other", "https://other.com") ] }.to_json)
     stub_request(:get, "https://itunes.apple.com/lookup?country=us&id=2").to_return(status: 200, body: { results: [] }.to_json)
+    stub_request(:get, "https://itunes.apple.com/lookup?country=us&id=1").to_return(status: 200, body: { results: [] }.to_json)
 
     assert_equal "appstore:1", @store.icon("1").key
     assert_nil @store.icon("2")

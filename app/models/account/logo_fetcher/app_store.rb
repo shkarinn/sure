@@ -14,21 +14,27 @@ class Account::LogoFetcher::AppStore
     @client = client
   end
 
-  # The countries are searched at once, so a slow store answers in one timeout, not three.
+  # Countries are searched and icons downloaded at once, so a slow store
+  # costs one timeout, not one per request.
   def icons
-    searches = @countries.map { |country| -> { results(SEARCH_URL, term: @term, country: country, entity: "software", limit: 10) } }
-    apps = @client.in_parallel(searches).flatten
-    apps.uniq { |app| app["trackId"] }.select { |app| own_app?(app) }.first(MAX_APPS).filter_map { |app| icon_from(app) }
+    apps = in_countries { |country| results(SEARCH_URL, term: @term, country: country, entity: "software", limit: 10) }
+    own = apps.uniq { |app| app["trackId"] }.select { |app| own_app?(app) }.first(MAX_APPS)
+    @client.in_parallel(own.map { |app| -> { icon_from(app) } }).compact
   end
 
   def icon(track_id)
     return unless track_id.to_s.match?(/\A\d+\z/)
 
-    app = @countries.lazy.flat_map { |country| results(LOOKUP_URL, id: track_id, country: country) }.first
+    app = in_countries { |country| results(LOOKUP_URL, id: track_id, country: country) }.first
     icon_from(app) if app && own_app?(app)
   end
 
   private
+    # Results of every country, in country order.
+    def in_countries(&search)
+      @client.in_parallel(@countries.map { |country| -> { search.call(country) } }).flatten
+    end
+
     def results(url, params)
       Array(@client.json("#{url}?#{params.to_query}")&.dig("results"))
     end
