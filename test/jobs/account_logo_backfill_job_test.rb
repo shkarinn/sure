@@ -14,4 +14,25 @@ class AccountLogoBackfillJobTest < ActiveJob::TestCase
     assert_enqueued_jobs 1, only: AccountLogoFetchJob
     assert_enqueued_with(job: AccountLogoFetchJob, args: [ without_logo ])
   end
+
+  test "queues a bounded batch per run and continues from where it stopped" do
+    Account.update_all(institution_domain: nil)
+    first, second = [ accounts(:depository), accounts(:credit_card) ].sort_by(&:id)
+    [ first, second ].each { |account| account.update_columns(institution_domain: "tbank.ru") }
+    cache = ActiveSupport::Cache::MemoryStore.new
+    Rails.stubs(:cache).returns(cache)
+
+    AccountLogoBackfillJob.perform_now(batch_size: 1)
+    assert_enqueued_with(job: AccountLogoFetchJob, args: [ first ])
+    clear_enqueued_jobs
+
+    AccountLogoBackfillJob.perform_now(batch_size: 1)
+    assert_enqueued_jobs 1, only: AccountLogoFetchJob
+    assert_enqueued_with(job: AccountLogoFetchJob, args: [ second ])
+    clear_enqueued_jobs
+
+    AccountLogoBackfillJob.perform_now(batch_size: 1)
+    # Starts over after the last batch.
+    assert_enqueued_with(job: AccountLogoFetchJob, args: [ first ])
+  end
 end

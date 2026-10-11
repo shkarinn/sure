@@ -44,7 +44,7 @@ en:
       pick: Pick icon
       pending: Applied when you save
       remove: Remove
-      removal: Removed when you save
+      removal: Removed when you save; the automatic icon comes back
       searching: Searching…
     logo_options:
       size: "%{size} px"

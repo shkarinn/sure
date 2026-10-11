@@ -7,7 +7,7 @@ class AccountsHelperTest < ActionView::TestCase
     @family = families(:dylan_family)
   end
 
-  test "sidebar cache key changes when a Brandfetch client id is configured" do
+  test "sidebar cache key changes with the Brandfetch client id" do
     Setting.stubs(:brand_fetch_client_id).returns(nil)
     without_key = account_sidebar_tabs_cache_key(family: @family, active_tab: "all", mobile: false)
 
@@ -15,6 +15,9 @@ class AccountsHelperTest < ActionView::TestCase
     with_key = account_sidebar_tabs_cache_key(family: @family, active_tab: "all", mobile: false)
 
     assert_not_equal without_key, with_key
+
+    Setting.stubs(:brand_fetch_client_id).returns("other-client-id")
+    assert_not_equal with_key, account_sidebar_tabs_cache_key(family: @family, active_tab: "all", mobile: false)
   end
 
   test "logo caption names where the shown icon comes from" do

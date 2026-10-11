@@ -729,6 +729,18 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_select "img[src^='data:image/png;base64,']", 2
   end
 
+  test "logo_options searches the domain typed in the form without saving it" do
+    @account.update!(institution_domain: "tbank.ru")
+    Account::LogoFetcher.expects(:new).with { |account| account.institution_domain == "krungsri.com" && account.institution_name == "Krungsri" }
+      .returns(stub(candidates: []))
+
+    get logo_options_account_url(@account), params: { institution_domain: "https://www.krungsri.com/", institution_name: "Krungsri" },
+                                            headers: { "Turbo-Frame" => dom_id(@account, :logo_field) }
+
+    assert_response :success
+    assert_equal "tbank.ru", @account.reload.institution_domain
+  end
+
   test "logo_options outside the frame goes to the account" do
     get logo_options_account_url(@account)
 

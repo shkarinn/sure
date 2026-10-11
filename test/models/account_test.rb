@@ -1016,6 +1016,18 @@ class AccountTest < ActiveSupport::TestCase
     assert @account.choose_logo("appstore:123")
   end
 
+  test "removing the stored logo brings back the fallback" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client-id")
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    assert_equal @account.stored_logo_url, @account.logo_url
+
+    @account.choose_logo("remove")
+
+    assert_equal @account.brandfetch_logo_url, @account.reload.logo_url
+    assert_equal @account.fallback_logo_url, @account.logo_url
+  end
+
   test "choose_logo removes the stored logo" do
     @account.update!(prefer_brandfetch_logo: true)
     @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")

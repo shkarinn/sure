@@ -11,15 +11,28 @@ module Account::Logoable
     has_one_attached :logo, dependent: :purge_later
     validate :logo_is_small_raster_image, if: -> { logo.attached? }
 
-    after_commit :fetch_logo_later, if: -> { saved_change_to_institution_domain? && read_attribute(:institution_domain).present? }
+    # The account form saves more than once in one transaction (attribute
+    # locks last), so the domain change is remembered until the commit.
+    after_save { @institution_domain_saved = true if saved_change_to_institution_domain? }
+    after_commit :fetch_logo_for_new_domain
+    after_rollback { @institution_domain_saved = false }
   end
+
+  # Set when the same save also picks an icon in the form, so an automatic
+  # fetch for the new domain cannot overwrite it.
+  attr_accessor :logo_chosen
 
   def logo_url
     if prefer_brandfetch_logo? && brandfetch_logo_url
       brandfetch_logo_url
     else
-      stored_logo_url || brandfetch_logo_url || provider&.logo_url.presence
+      stored_logo_url || fallback_logo_url
     end
+  end
+
+  # What shows without a stored logo, and so what removing it brings back.
+  def fallback_logo_url
+    brandfetch_logo_url || provider&.logo_url.presence
   end
 
   # A rejected upload re-rendered in the form is attached but unsaved and has no URL yet.
@@ -51,7 +64,8 @@ module Account::Logoable
 
   # Applies the icon chosen in the account form: an Account::LogoFetcher key,
   # "brandfetch" or "stored" to switch what is shown without deleting the
-  # stored logo, or "remove". Returns false when the choice could not apply.
+  # stored logo, or "remove", which goes back to the automatic icon (the
+  # fallback, and the nightly fetch). Returns false when the choice could not apply.
   def choose_logo(choice)
     case choice
     when "brandfetch" then brandfetch_logo_url.present? && update!(prefer_brandfetch_logo: true)
@@ -80,7 +94,10 @@ module Account::Logoable
       end
     end
 
-    def fetch_logo_later
+    def fetch_logo_for_new_domain
+      domain_saved, @institution_domain_saved = @institution_domain_saved, false
+      return unless domain_saved && read_attribute(:institution_domain).present? && !logo_chosen
+
       AccountLogoFetchJob.perform_later(self)
     end
 end

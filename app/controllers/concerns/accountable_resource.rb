@@ -86,6 +86,10 @@ module AccountableResource
     update_params = account_params.except(:return_to, :balance, :opening_balance_date)
     # An uploaded logo is meant to be seen, so it takes over from Brandfetch.
     update_params[:prefer_brandfetch_logo] = false if account_params[:logo].present?
+    # An icon picked or uploaded in this form wins over the automatic fetch
+    # that a domain change would otherwise queue.
+    logo_choice = params.dig(:account, :logo_choice).presence
+    @account.logo_chosen = logo_choice.present? || account_params[:logo].present?
 
     # The balance change and the attribute update are one form, so they commit
     # or roll back as one. `set_current_balance` writes a valuation and the
@@ -129,7 +133,6 @@ module AccountableResource
 
     # The icon picked in the form downloads only on save, after the account
     # committed, and an upload in the same submit wins over it.
-    logo_choice = params.dig(:account, :logo_choice).presence
     if logo_choice && account_params[:logo].blank? && !@account.choose_logo(logo_choice)
       flash[:alert] = t("accounts.update.logo_not_applied")
     end

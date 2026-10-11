@@ -160,6 +160,22 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_nil flash[:alert]
   end
 
+  test "update with a chosen icon skips the automatic fetch for a new domain" do
+    Account::LogoFetcher.any_instance.expects(:fetch).with(source: "yandex").returns(true)
+
+    assert_no_enqueued_jobs only: AccountLogoFetchJob do
+      patch depository_path(@account), params: { account: { institution_domain: "krungsri.com", logo_choice: "yandex" } }
+    end
+
+    assert_redirected_to account_path(@account)
+  end
+
+  test "update without a chosen icon fetches one for a new domain" do
+    assert_enqueued_with(job: AccountLogoFetchJob) do
+      patch depository_path(@account), params: { account: { institution_domain: "krungsri.com" } }
+    end
+  end
+
   test "update saves the account when the chosen icon cannot be downloaded" do
     Account::LogoFetcher.any_instance.expects(:fetch).returns(false)
 
@@ -200,12 +216,24 @@ class DepositoriesControllerTest < ActionDispatch::IntegrationTest
     frame = dom_id(@account, :logo_field)
     assert_select "[data-controller=account-logo-picker]" do
       assert_select "turbo-frame##{frame}" do
-        assert_select "button[form=?]", dom_id(@account, :logo_options)
+        assert_select "button[form=?][data-action='account-logo-picker#search']", dom_id(@account, :logo_options)
         assert_select "button[type=button][data-action='account-logo-picker#remove']"
+        assert_select "template[data-account-logo-picker-target=fallback]"
       end
       assert_select "input[type=hidden][name='account[logo_choice]'][data-account-logo-picker-target=choice]"
       assert_select "input[type=file][name='account[logo]'][data-account-logo-picker-target=file]"
     end
-    assert_select "form[id=?][action=?][method=get][data-turbo-frame=?]", dom_id(@account, :logo_options), logo_options_account_path(@account), frame
+    assert_select "form[id=?][action=?][method=get][data-turbo-frame=?]", dom_id(@account, :logo_options), logo_options_account_path(@account), frame do
+      assert_select "input[type=hidden][name=institution_domain][value=?]", "tbank.ru"
+      assert_select "input[type=hidden][name=institution_name]"
+    end
+  end
+
+  test "edit form offers the picker before a domain is saved" do
+    @account.update!(institution_domain: nil)
+
+    get edit_account_url(@account)
+
+    assert_select "button[form=?]", dom_id(@account, :logo_options)
   end
 end

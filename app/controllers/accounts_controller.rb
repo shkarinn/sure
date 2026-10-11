@@ -212,6 +212,8 @@ class AccountsController < ApplicationController
   def logo_options
     return redirect_to account_path(@account) unless turbo_frame_request?
 
+    # The form may hold a domain or name that is not saved yet.
+    @account.assign_attributes(params.permit(:institution_domain, :institution_name))
     render partial: "accounts/logo_field", locals: { account: @account, candidates: Account::LogoFetcher.new(@account).candidates }
   end
 

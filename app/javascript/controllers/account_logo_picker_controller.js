@@ -4,7 +4,15 @@ import { Controller } from "@hotwired/stimulus";
 // form is submitted: a picked or removed icon travels in a hidden field, an
 // upload in the file field.
 export default class extends Controller {
-  static targets = ["preview", "image", "caption", "choice", "file", "option"];
+  static targets = [
+    "preview",
+    "image",
+    "caption",
+    "choice",
+    "file",
+    "option",
+    "fallback",
+  ];
   static values = { pending: String, removal: String };
 
   // The picker reloads the icon block from the server, which shows the saved
@@ -16,6 +24,18 @@ export default class extends Controller {
     this.savedCaption = this.captionTarget.textContent;
     this.choiceTarget.value = "";
     this.showFile();
+  }
+
+  // The picker searches what the account form holds now, not what was saved.
+  search({ currentTarget }) {
+    const typed = this.element.closest("form").elements;
+    const query = currentTarget.form.elements;
+
+    for (const name of ["institution_domain", "institution_name"]) {
+      const field = typed.namedItem(`account[${name}]`);
+      const input = query.namedItem(name);
+      if (field && input) input.value = field.value;
+    }
   }
 
   choose({ params: { choice, label }, currentTarget }) {
@@ -34,11 +54,14 @@ export default class extends Controller {
     this.highlight(currentTarget);
   }
 
+  // Removing brings back the automatic icon, so that is what the preview shows.
   remove() {
     this.clearFile();
     this.restore();
     this.choiceTarget.value = "remove";
-    this.imageTarget.classList.add("opacity-40");
+    this.imageTarget.replaceChildren(
+      this.fallbackTarget.content.cloneNode(true),
+    );
     this.captionTarget.textContent = this.removalValue;
     this.highlight(null);
   }
@@ -59,14 +82,12 @@ export default class extends Controller {
     const image = document.createElement("img");
     image.src = src;
     image.className = "shrink-0 rounded-full w-10 h-10 object-contain";
-    this.imageTarget.classList.remove("opacity-40");
     this.imageTarget.replaceChildren(image);
     this.captionTarget.textContent = caption;
   }
 
   restore() {
     this.choiceTarget.value = "";
-    this.imageTarget.classList.remove("opacity-40");
     this.imageTarget.replaceChildren(
       ...this.savedImage.map((node) => node.cloneNode(true)),
     );

@@ -2,7 +2,8 @@
 <%# Sits inside the account form and only previews: the account-logo-picker
     controller around it (accounts/_form) keeps the choice in a hidden field,
     and saving the form applies it. "Pick icon" submits the form rendered
-    after the account form (accounts/_logo_forms) through its `form` attribute. %>
+    after the account form (accounts/_logo_forms) through its `form` attribute,
+    with the domain and name currently typed in the account form. %>
 <%= turbo_frame_tag dom_id(account, :logo_field), class: "block space-y-2", data: { testid: "account-logo-field" } do %>
   <div class="space-y-1" data-account-logo-picker-target="preview">
     <div data-account-logo-picker-target="image">
@@ -11,18 +12,27 @@
     <p class="text-xs text-secondary" data-account-logo-picker-target="caption"><%= account_logo_caption(account) %></p>
   </div>
 
+  <% if account.logo.attached? %>
+    <%# What "Remove" previews: the automatic icon that shows without a stored one. %>
+    <template data-account-logo-picker-target="fallback">
+      <% if account.fallback_logo_url %>
+        <%= image_tag account.fallback_logo_url, class: "shrink-0 rounded-full w-10 h-10" %>
+      <% else %>
+        <%= render DS::FilledIcon.new(variant: :text, hex_color: account.accountable&.color, text: account.name, size: "lg", rounded: true) %>
+      <% end %>
+    </template>
+  <% end %>
+
   <div class="flex flex-wrap items-center gap-2">
-    <% if account.institution_domain.present? %>
-      <%= render DS::Button.new(
-            text: t("accounts.logo_field.pick"),
-            variant: :outline,
-            size: :sm,
-            icon: "images",
-            type: "submit",
-            form: dom_id(account, :logo_options),
-            data: { turbo_submits_with: t("accounts.logo_field.searching") }
-          ) %>
-    <% end %>
+    <%= render DS::Button.new(
+          text: t("accounts.logo_field.pick"),
+          variant: :outline,
+          size: :sm,
+          icon: "images",
+          type: "submit",
+          form: dom_id(account, :logo_options),
+          data: { action: "account-logo-picker#search", turbo_submits_with: t("accounts.logo_field.searching") }
+        ) %>
     <% if account.logo.attached? %>
       <%= render DS::Button.new(
             text: t("accounts.logo_field.remove"),
