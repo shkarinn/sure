@@ -50,15 +50,28 @@ class Account::LogoFetcher::Client
       if body.start_with?("\x89PNG\r\n\x1a\n".b) && body.bytesize >= 24
         [ body.byteslice(16, 4).unpack1("N"), "image/png", "png" ]
       elsif body.start_with?("\x00\x00\x01\x00".b) && body.bytesize >= 6
-        count = body.byteslice(4, 2).unpack1("v")
-        widths = (0...count).filter_map { |i| body.getbyte(6 + i * 16) }
-        # A width byte of 0 means 256px.
-        [ widths.map { |width| width.zero? ? 256 : width }.max, "image/vnd.microsoft.icon", "ico" ]
+        [ ico_width(body), "image/vnd.microsoft.icon", "ico" ]
       elsif body.start_with?("GIF8") && body.bytesize >= 8
         [ body.byteslice(6, 2).unpack1("v"), "image/gif", "gif" ]
       elsif body.start_with?("\xFF\xD8".b)
         [ jpeg_width(body), "image/jpeg", "jpg" ]
       end
+    end
+
+    # The widest image an ICO holds, counting only directory entries whose
+    # image data is in the file; nil when the directory itself is cut short.
+    def ico_width(body)
+      count = body.byteslice(4, 2).unpack1("v")
+      return if count.zero? || body.bytesize < 6 + count * 16
+
+      widths = (0...count).filter_map do |i|
+        entry = 6 + i * 16
+        data_size, data_offset = body.byteslice(entry + 8, 8).unpack("VV")
+        width = body.getbyte(entry)
+        # A width byte of 0 means 256px.
+        (width.zero? ? 256 : width) if data_size.positive? && data_offset + data_size <= body.bytesize
+      end
+      widths.max
     end
 
     # Walks the JPEG segments to the start-of-frame one, which holds the dimensions.

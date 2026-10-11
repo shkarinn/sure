@@ -155,11 +155,19 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "tbank.ru.jpg", @account.logo.filename.to_s
   end
 
-  test "skips an ICO whose directory is cut short" do
+  test "skips an ICO whose directory or image data is cut short" do
     stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(64))
-    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: "\x00\x00\x01\x00\x01\x00".b)
+    [ "\x00\x00\x01\x00\x01\x00".b, "\x00\x00\x01\x00\x01\x00\x20".b, ico(128).byteslice(0, 40) ].each do |cut|
+      stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: cut)
 
-    assert_equal [ "google" ], Account::LogoFetcher.new(@account).candidates.map(&:key)
+      assert_equal [ "google" ], Account::LogoFetcher.new(@account).candidates.map(&:key)
+    end
+  end
+
+  test "searches the GB App Store for .uk domains" do
+    @account.update_columns(institution_domain: "barclays.co.uk")
+
+    assert_equal "gb", Account::LogoFetcher.new(@account).send(:countries).first
   end
 
   test "keeps the current logo when nothing usable is found" do

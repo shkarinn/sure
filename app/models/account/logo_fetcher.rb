@@ -12,6 +12,8 @@ class Account::LogoFetcher
   }.freeze
 
   DOMAIN_FORMAT = /\A[a-z0-9-]+(\.[a-z0-9-]+)+\z/
+  # Country-code TLDs that differ from the ISO country code the stores use.
+  CCTLD_COUNTRIES = { "uk" => "gb" }.freeze
 
   # `key` identifies the icon for fetch(source:): a favicon service name, or
   # "appstore:<track id>", "googleplay:<package>" or "rustore:<package>" for an app.
@@ -136,6 +138,7 @@ class Account::LogoFetcher
     # the family's, then the US store, which lists most international apps.
     def countries
       tld = domain.split(".").last
+      tld = CCTLD_COUNTRIES.fetch(tld, tld)
       [ (tld if tld.length == 2), account.family&.country, "us" ].compact.map(&:downcase).uniq
     end
 
