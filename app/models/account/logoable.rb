@@ -58,6 +58,16 @@ module Account::Logoable
     logo.blob.metadata["logo_key"] || logo_source if logo.attached?
   end
 
+  # Whether the stored logo is the icon with `key` for the current domain.
+  # Favicon keys name only the service, so the domain it was fetched for has
+  # to match too; icons stored before that was recorded carry it in their
+  # filename ("tbank.ru.png").
+  def stored_logo?(key)
+    return false unless logo.attached? && logo_key == key
+
+    (logo.blob.metadata["logo_domain"] || logo.filename.base) == institution_domain
+  end
+
   def logo_auto?
     logo.attached? && logo.blob.metadata["logo_auto"] == true
   end
@@ -96,8 +106,13 @@ module Account::Logoable
 
     def fetch_logo_for_new_domain
       domain_saved, @institution_domain_saved = @institution_domain_saved, false
-      return unless domain_saved && read_attribute(:institution_domain).present? && !logo_chosen
+      return unless domain_saved && !logo_chosen
 
-      AccountLogoFetchJob.perform_later(self)
+      if read_attribute(:institution_domain).present?
+        AccountLogoFetchJob.perform_later(self)
+      elsif logo_auto?
+        # The automatic icon belonged to the institution that was removed.
+        logo.purge_later
+      end
     end
 end

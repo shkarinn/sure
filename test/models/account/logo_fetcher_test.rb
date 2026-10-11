@@ -39,6 +39,18 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "T-Bank", @account.logo.blob.metadata["logo_name"]
   end
 
+  test "an automatic fetch yields to an icon chosen while it searched" do
+    icon = Account::LogoFetcher::Icon.new(key: "google", source: "google", name: nil, body: png(180), size: 180, content_type: "image/png", extension: "png")
+    fetcher = Account::LogoFetcher.new(@account)
+    fetcher.stubs(:candidates).with do
+      Account.find(@account.id).logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+      true
+    end.returns([ icon ])
+
+    assert_not fetcher.fetch(auto: true)
+    assert_equal "mine.png", @account.reload.logo.filename.to_s
+  end
+
   test "never asks RuStore when fetching automatically" do
     stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
     stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)

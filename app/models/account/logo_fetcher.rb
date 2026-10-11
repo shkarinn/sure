@@ -48,15 +48,26 @@ class Account::LogoFetcher
   def fetch(source: nil, auto: false)
     return false unless domain
 
+    fetched_for = domain
     icon = source ? icon_for(source) : candidates(for_picker: false).first
     return false unless icon
 
-    account.logo.attach(
-      io: StringIO.new(icon.body),
-      filename: "#{domain}.#{icon.extension}",
-      content_type: icon.content_type,
-      metadata: { "logo_source" => icon.source, "logo_key" => icon.key, "logo_name" => icon.name, "logo_auto" => auto }.compact
-    ) && account.update!(prefer_brandfetch_logo: false)
+    # The search takes seconds. Under the row lock, which the account form's
+    # save also holds, an automatic fetch yields to an icon chosen or uploaded
+    # meanwhile and to a domain changed meanwhile.
+    account.with_lock do
+      if auto && (!account.logo_auto_fetchable? || account.institution_domain != fetched_for)
+        false
+      else
+        account.logo.attach(
+          io: StringIO.new(icon.body),
+          filename: "#{fetched_for}.#{icon.extension}",
+          content_type: icon.content_type,
+          metadata: { "logo_source" => icon.source, "logo_key" => icon.key, "logo_name" => icon.name,
+                      "logo_domain" => fetched_for, "logo_auto" => auto }.compact
+        ) && account.update!(prefer_brandfetch_logo: false)
+      end
+    end
   end
 
   private

@@ -1028,6 +1028,29 @@ class AccountTest < ActiveSupport::TestCase
     assert_equal @account.fallback_logo_url, @account.logo_url
   end
 
+  test "clearing the domain drops an automatic icon but keeps an uploaded one" do
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "tbank.ru.png",
+                         metadata: { "logo_source" => "google", "logo_key" => "google", "logo_auto" => true })
+    @account.update!(institution_domain: "")
+    assert_not @account.reload.logo.attached?
+
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
+    @account.update!(institution_domain: "")
+    assert @account.reload.logo.attached?
+  end
+
+  test "stored_logo? matches a favicon key only for the domain it was fetched for" do
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "tbank.ru.png",
+                         metadata: { "logo_source" => "google", "logo_key" => "google" })
+    assert @account.stored_logo?("google")
+
+    @account.institution_domain = "sberbank.ru"
+    assert_not @account.stored_logo?("google")
+  end
+
   test "choose_logo removes the stored logo" do
     @account.update!(prefer_brandfetch_logo: true)
     @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")

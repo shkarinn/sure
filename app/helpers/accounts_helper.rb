@@ -81,7 +81,7 @@ module AccountsHelper
         label: t("accounts.logo_options.sources.#{icon.source}"),
         detail: t("accounts.logo_options.size", size: icon.size),
         title: icon.name,
-        current: shows_stored && account.logo_key == icon.key
+        current: shows_stored && account.stored_logo?(icon.key)
       )
     end
 
