@@ -1,4 +1,6 @@
-<%# locals: (account:, url:) %>
+<%# locals: (account:, url:, logo: true) %>
+<%# `logo: false` hides the icon block for forms whose controller does not
+    save it (properties). %>
 
 <% if @error_message.present? %>
   <%= render DS::Alert.new(message: @error_message, variant: :error) %>
@@ -61,7 +63,7 @@
           </p>
         </div>
 
-        <% if account.persisted? %>
+        <% if logo && account.persisted? %>
           <div class="space-y-2"
                data-controller="account-logo-picker"
                data-account-logo-picker-pending-value="<%= t("accounts.logo_field.pending") %>"
@@ -91,6 +93,6 @@
   <%= form.submit %>
 <% end %>
 
-<% if account.persisted? %>
+<% if logo && account.persisted? %>
   <%= render "accounts/logo_forms", account: account %>
 <% end %>
