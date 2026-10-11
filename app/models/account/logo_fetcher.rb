@@ -64,15 +64,16 @@ class Account::LogoFetcher
     return false unless domain
 
     fetched_for = domain
+    logo_before = logo_state
     icon = source ? icon_for(source) : candidates(for_picker: false).find(&:auto)
     return false unless icon
 
-    # Touching the account busts the sidebar cache, which an attachment alone
-    # does not. The search takes seconds. Under the row lock, which the account form's
-    # save also holds, an automatic fetch yields to an icon chosen or uploaded
-    # meanwhile and to a domain changed meanwhile.
+    # The search takes seconds. Under the row lock, which the account form's
+    # save also holds, a fetch yields to an icon chosen, uploaded or removed
+    # meanwhile and to a domain changed meanwhile. Touching the account busts
+    # the sidebar cache, which an attachment alone does not.
     account.with_lock do
-      if auto && (!account.logo_auto_fetchable? || account.institution_domain != fetched_for)
+      if logo_state != logo_before || account.institution_domain != fetched_for || (auto && !account.logo_auto_fetchable?)
         false
       else
         account.logo.attach(
@@ -87,6 +88,10 @@ class Account::LogoFetcher
   end
 
   private
+    def logo_state
+      [ account.logo.attachment&.blob_id, account.prefer_brandfetch_logo? ]
+    end
+
     def domain
       value = account.institution_domain
       value if value.to_s.match?(DOMAIN_FORMAT)

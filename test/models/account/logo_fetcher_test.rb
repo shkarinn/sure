@@ -39,6 +39,20 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "T-Bank", @account.logo.blob.metadata["logo_name"]
   end
 
+  test "a picked icon yields to a newer choice made while it downloaded" do
+    stub_request(:get, YANDEX_URL).to_return(status: 200, body: png(120))
+    fetcher = Account::LogoFetcher.new(@account)
+    fetcher.stubs(:icon_for).with do
+      Account.find(@account.id).update!(prefer_brandfetch_logo: true)
+      true
+    end.returns(Account::LogoFetcher::Icon.new(key: "yandex", source: "yandex", name: nil, body: png(120), size: 120,
+                                               content_type: "image/png", extension: "png"))
+
+    assert_not fetcher.fetch(source: "yandex")
+    assert_not @account.reload.logo.attached?
+    assert @account.prefer_brandfetch_logo?
+  end
+
   test "an automatic fetch yields to an icon chosen while it searched" do
     icon = Account::LogoFetcher::Icon.new(key: "google", source: "google", name: nil, body: png(180), size: 180, content_type: "image/png", extension: "png")
     fetcher = Account::LogoFetcher.new(@account)
