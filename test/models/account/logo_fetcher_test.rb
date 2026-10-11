@@ -39,12 +39,10 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "T-Bank", @account.logo.blob.metadata["logo_name"]
   end
 
-  test "never attaches a RuStore icon automatically" do
+  test "never asks RuStore when fetching automatically" do
     stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(180))
     stub_request(:get, DUCKDUCKGO_URL).to_return(status: 404)
-    Account::LogoFetcher::RuStore.any_instance.stubs(:icons).returns([
-      Account::LogoFetcher::Icon.new(key: "rustore:com.tbank.fake", source: "rustore", name: "T-Bank", body: png(512), size: 512, content_type: "image/png", extension: "png")
-    ])
+    Account::LogoFetcher::RuStore.any_instance.expects(:icons).never
 
     assert Account::LogoFetcher.new(@account).fetch(auto: true)
 

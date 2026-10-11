@@ -2,8 +2,8 @@
 # Brandfetch refuses server-side downloads and bank sites block bots, so the
 # icons come from services that already collected them: favicon services
 # (the sites' touch and manifest icons) and the institution's mobile apps in
-# the App Store and Google Play, matched by the developer's website, and in
-# RuStore, matched by the package name.
+# the App Store, Google Play and RuStore, matched by the developer's website
+# (or, in RuStore, by the package name).
 class Account::LogoFetcher
   FAVICON_SOURCES = {
     "google" => ->(domain) { "https://www.google.com/s2/favicons?domain=#{domain}&sz=256" },
@@ -12,10 +12,6 @@ class Account::LogoFetcher
   }.freeze
 
   DOMAIN_FORMAT = /\A[a-z0-9-]+(\.[a-z0-9-]+)+\z/
-  # Sources matched by name rather than by the institution's own domain:
-  # anyone can publish a package named after a brand, so their icons are only
-  # offered in the picker, never attached automatically.
-  PICK_ONLY_SOURCES = %w[rustore].freeze
 
   # `key` identifies the icon for fetch(source:): a favicon service name, or
   # "appstore:<track id>", "googleplay:<package>" or "rustore:<package>" for an app.
@@ -33,23 +29,26 @@ class Account::LogoFetcher
   end
 
   # Real icons from every source, largest first; ties keep the source order.
-  def candidates
+  # RuStore is asked only for the picker: it may match an app by its package
+  # name, which anyone can choose, and it puts clients that read many of its
+  # store pages behind a bot challenge.
+  def candidates(for_picker: true)
     return [] unless domain
 
     # Built here, not in the threads, so database reads stay on this thread's connection.
-    stores = [ app_store, google_play, ru_store ]
+    stores = [ app_store, google_play, (ru_store if for_picker) ].compact
     icons = client.in_parallel([ -> { favicon_icons }, *stores.map { |store| -> { store.icons } } ]).flatten
     icons.each_with_index.sort_by { |icon, index| [ -icon.size, index ] }.map(&:first)
   end
 
-  # Attaches the icon with `source` key, or the largest one matched by the
-  # domain when no source is given. `auto` marks the icon as picked by Sure,
+  # Attaches the icon with `source` key, or the largest one outside RuStore
+  # when no source is given. `auto` marks the icon as picked by Sure,
   # so later automatic fetches may replace it. Returns true when an icon was
   # attached.
   def fetch(source: nil, auto: false)
     return false unless domain
 
-    icon = source ? icon_for(source) : candidates.find { |candidate| PICK_ONLY_SOURCES.exclude?(candidate.source) }
+    icon = source ? icon_for(source) : candidates(for_picker: false).first
     return false unless icon
 
     account.logo.attach(

@@ -22,6 +22,18 @@ class Account::LogoFetcher::RuStoreTest < ActiveSupport::TestCase
     assert_equal [ 512, "rustore", "Яндекс Пэй" ], [ icons.first.size, icons.first.source, icons.first.name ]
   end
 
+  test "returns apps named after the institution and other apps of their brand" do
+    store = Account::LogoFetcher::RuStore.new(domain: "tbank.ru", term: "Т-Банк", client: Account::LogoFetcher::Client.new)
+    stub_search(
+      app("com.idamob.tinkoff.android", "Т-Банк: карты, вклады, кредиты"),
+      app("ru.sberbankmobile", "СберБанк Онлайн"),
+      app("ru.tinkoff.sme", "Т-Бизнес"),
+      term: "Т-Банк"
+    )
+
+    assert_equal [ "rustore:com.idamob.tinkoff.android", "rustore:ru.tinkoff.sme" ], store.icons.map(&:key)
+  end
+
   test "finds a picked app again by its package" do
     stub_search(app("ru.yandex.searchplugin", "Яндекс Старт", icon: "https://static.rustore.ru/other.png"), app("com.yandex.bank", "Яндекс Пэй"))
 
@@ -36,9 +48,9 @@ class Account::LogoFetcher::RuStoreTest < ActiveSupport::TestCase
   end
 
   private
-    def stub_search(*apps)
+    def stub_search(*apps, term: "Яндекс Банк")
       stub_request(:get, SEARCH_URL)
-        .with(query: hash_including(query: "Яндекс Банк"))
+        .with(query: hash_including(query: term))
         .to_return(status: 200, body: { code: "OK", body: { content: apps } }.to_json)
     end
 
