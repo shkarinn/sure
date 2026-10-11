@@ -9,7 +9,8 @@ module Account::Logoable
 
   included do
     has_one_attached :logo, dependent: :purge_later
-    validate :logo_is_small_raster_image, if: -> { logo.attached? }
+    # Only new uploads: logos stored before this check must not block saves.
+    validate :logo_is_small_raster_image, if: -> { attachment_changes.key?("logo") && logo.attached? }
     # The account sidebar is cached by the accounts' updated_at, which an
     # attachment alone does not change.
     before_save { self.updated_at = Time.current if attachment_changes.key?("logo") }
@@ -111,7 +112,8 @@ module Account::Logoable
       domain_saved, @institution_domain_saved = @institution_domain_saved, false
       return unless domain_saved && !logo_chosen
 
-      if read_attribute(:institution_domain).present?
+      # A cleared override may fall back to the provider's domain.
+      if institution_domain.present?
         AccountLogoFetchJob.perform_later(self)
       elsif logo_auto?
         # The automatic icon belonged to the institution that was removed.

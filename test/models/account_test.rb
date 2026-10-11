@@ -1053,6 +1053,22 @@ class AccountTest < ActiveSupport::TestCase
     assert_not @account.stored_logo?("google")
   end
 
+  test "a stored logo from before the upload check does not block saves" do
+    @account.logo.attach(io: StringIO.new("<svg/>"), filename: "old.svg", content_type: "image/svg+xml")
+
+    assert @account.reload.update(name: "Renamed")
+  end
+
+  test "clearing the domain keeps the automatic icon when the provider supplies one" do
+    @account.update!(institution_domain: "tbank.ru")
+    @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "tbank.ru.png",
+                         metadata: { "logo_source" => "google", "logo_key" => "google", "logo_auto" => true })
+    @account.stubs(:provider).returns(stub(institution_domain: "tbank.ru"))
+
+    assert_enqueued_with(job: AccountLogoFetchJob) { @account.update!(institution_domain: "") }
+    assert @account.reload.logo.attached?
+  end
+
   test "uploading or removing a logo touches the account" do
     @account.update_columns(updated_at: 1.day.ago)
     @account.update!(logo: { io: file_fixture("square-placeholder.png").open, filename: "mine.png", content_type: "image/png" })
