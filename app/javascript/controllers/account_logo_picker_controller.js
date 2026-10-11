@@ -12,6 +12,7 @@ export default class extends Controller {
     "file",
     "option",
     "fallback",
+    "blank",
   ];
   static values = { pending: String, removal: String };
 
@@ -78,10 +79,11 @@ export default class extends Controller {
     this.highlight(null);
   }
 
+  // The image comes from the server-rendered blank, so it keeps the shape of
+  // every other account logo.
   showImage(src, caption) {
-    const image = document.createElement("img");
+    const image = this.blankTarget.content.querySelector("img").cloneNode();
     image.src = src;
-    image.className = "shrink-0 rounded-full w-10 h-10 object-contain";
     this.imageTarget.replaceChildren(image);
     this.captionTarget.textContent = caption;
   }

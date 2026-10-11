@@ -116,6 +116,13 @@ class Account::LogoFetcherTest < ActiveSupport::TestCase
     assert_equal "tbank.ru.jpg", @account.logo.filename.to_s
   end
 
+  test "skips an ICO whose directory is cut short" do
+    stub_request(:get, GOOGLE_URL).to_return(status: 200, body: png(64))
+    stub_request(:get, DUCKDUCKGO_URL).to_return(status: 200, body: "\x00\x00\x01\x00\x01\x00".b)
+
+    assert_equal [ "google" ], Account::LogoFetcher.new(@account).candidates.map(&:key)
+  end
+
   test "keeps the current logo when nothing usable is found" do
     @account.logo.attach(io: file_fixture("square-placeholder.png").open, filename: "mine.png")
     stub_request(:get, GOOGLE_URL).to_timeout

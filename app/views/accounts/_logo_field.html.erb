@@ -12,14 +12,14 @@
     <p class="text-xs text-secondary" data-account-logo-picker-target="caption"><%= account_logo_caption(account) %></p>
   </div>
 
+  <%# The shapes the preview switches to: an uploaded file (its src is set
+      in the browser) and, for "Remove", the automatic icon. %>
+  <template data-account-logo-picker-target="blank">
+    <%= render "accounts/logo", account: account, size: "lg", url: "data:," %>
+  </template>
   <% if account.logo.attached? %>
-    <%# What "Remove" previews: the automatic icon that shows without a stored one. %>
     <template data-account-logo-picker-target="fallback">
-      <% if account.fallback_logo_url %>
-        <%= image_tag account.fallback_logo_url, class: "shrink-0 rounded-full w-10 h-10" %>
-      <% else %>
-        <%= render DS::FilledIcon.new(variant: :text, hex_color: account.accountable&.color, text: account.name, size: "lg", rounded: true) %>
-      <% end %>
+      <%= render "accounts/logo", account: account, size: "lg", url: account.fallback_logo_url %>
     </template>
   <% end %>
 
@@ -60,7 +60,7 @@
                            account_logo_picker_label_param: option.label
                          },
                          class: "flex flex-col items-center gap-1 p-2 rounded-lg border min-w-0 hover:bg-surface-hover cursor-pointer #{option.current ? "border-primary" : "border-secondary"}" do %>
-            <%= image_tag option.src, alt: option.title || option.label, class: "w-10 h-10 rounded-full object-contain" %>
+            <%= render "accounts/logo", account: account, size: "lg", url: option.src %>
             <span class="text-xs text-primary truncate w-full text-center"><%= option.label %></span>
             <span class="text-xs text-secondary truncate w-full text-center">
               <%= option.current ? t("accounts.logo_field.current") : option.detail %>
