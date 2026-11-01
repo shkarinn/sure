@@ -174,6 +174,46 @@ test("a label that would cross another column's bar once moved stays hidden", ()
   assert.equal(hidden.has(2), false);
 });
 
+test("a label is measured at the height it slides to", () => {
+  // At its bar's centre the label clears the next column's bar, but its
+  // larger neighbour pushes it up beside that bar, where it fits only once
+  // shortened.
+  const nodes = [
+    { index: 0, x0: 0, x1: 15, value: 100, y0: 40, y1: 80 },
+    { index: 1, x0: 0, x1: 15, value: 200, y0: 82, y1: 84 },
+    { index: 2, x0: 120, x1: 135, value: 1000, y0: 0, y1: 44 },
+  ];
+  const widths = [108, 50, 70];
+  const fullBox = (node, y) => ({
+    x: node.x0 < 100 ? 21 : 141,
+    y: y - 13,
+    width: widths[node.index],
+    height: 26,
+  });
+  const asked = [];
+  const labelBoxAt = (node, y) => {
+    if (node.index === 0) asked.push(y);
+    const box = fullBox(node, y);
+    const room = sankeyLabelRoom(node, box, nodes);
+    return room !== null && box.width > room ? { ...box, width: room } : box;
+  };
+  const options = { height: 400, minSpacing: SPACING };
+
+  const centreBoxes = new Map(
+    nodes.map((node) => [node.index, labelBoxAt(node, (node.y0 + node.y1) / 2)]),
+  );
+  assert.equal(
+    hiddenSankeyLabels(nodes, { ...options, labelBoxes: centreBoxes }).has(0),
+    true,
+    "measured at the centre, the slid label still runs into the bar",
+  );
+
+  const { hidden, labelY } = layoutSankeyLabels(nodes, { ...options, labelBoxAt });
+  assert.equal(hidden.size, 0);
+  assert.equal(labelY.get(0), 55);
+  assert.ok(asked.includes(55), "the box is asked for where the label goes");
+});
+
 test("same-depth nodes in different visual columns do not compete", () => {
   // d3-sankey justify alignment flushes sinks to the last column; a parent
   // one column left at the same y must not lose its label to the sink.

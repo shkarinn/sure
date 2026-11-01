@@ -11,29 +11,34 @@
 // one's label; further along, the largest of the rest still get labels.
 //
 // On a narrow chart a label can also run across the gap into the next
-// column. When the caller passes each label's measured box (keyed by
-// node.index, measured at the bar's centre), a label yields if it would
-// cover another node's bar, or a more prominent label from another column.
+// column. When the caller passes each label's measured box, a label yields
+// if it would cover another node's bar, or a more prominent label from
+// another column. Boxes come either as `labelBoxes` (keyed by node.index,
+// measured at the bar's centre and moved with the label) or as
+// `labelBoxAt(node, y)`, the box of the label centred at y, for a caller
+// that shortens a name to the room it has at that height.
 //
 // Returns the hidden node indexes and, for every shown label, the y of its
 // centre.
 export function layoutSankeyLabels(
   nodes,
-  { height, minSpacing: spacing, labelBoxes },
+  { height, minSpacing: spacing, labelBoxes, labelBoxAt },
 ) {
   const hidden = new Set();
   const labelY = new Map();
-  const bars = labelBoxes ? nodes.map(barBox) : [];
+  const shiftedBox =
+    labelBoxAt ??
+    (labelBoxes &&
+      ((node, y) => {
+        const box = labelBoxes.get(node.index);
+        return box && { ...box, y: box.y + y - centre(node) };
+      }));
+  const bars = shiftedBox ? nodes.map(barBox) : [];
   const placedByColumn = new Map();
   const crowdedYsByColumn = new Map();
 
-  const shiftedBox = (node, y) => {
-    const box = labelBoxes?.get(node.index);
-    return box && { ...box, y: box.y + y - centre(node) };
-  };
-
   const isClear = (node, y, column) => {
-    const box = shiftedBox(node, y);
+    const box = shiftedBox?.(node, y);
     if (!box) return true;
     if (bars.some((bar) => bar.node !== node && overlaps(box, bar))) {
       return false;

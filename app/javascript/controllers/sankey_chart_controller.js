@@ -533,10 +533,22 @@ export default class extends Controller {
 
   #addNodeLabels(svg, nodeGroups, width, nodes) {
     const controller = this;
+    const probe = svg
+      .append("text")
+      .attr("class", "text-xs font-medium select-none")
+      .style("visibility", "hidden");
+    const labelBoxAt = this.#labelMeasurer(probe, nodes, width);
     const { hidden: hiddenLabels, labelY } = this.#layoutLabels(
       nodes,
-      this.#measureLabels(svg, nodes, width),
+      labelBoxAt,
     );
+    // Each label keeps the name that fits where it ended up; a hidden one
+    // where hover reveals it, at its bar's centre.
+    nodes.forEach((d) => {
+      const y = labelY.get(d.index) ?? (d.y0 + d.y1) / 2;
+      d.labelName = labelBoxAt(d, y).labelName;
+    });
+    probe.remove();
 
     nodeGroups
       .append("text")
@@ -585,47 +597,55 @@ export default class extends Controller {
       .text(this.#formatCurrency(d.value));
   }
 
-  // Where each label lands at this width, measured with an invisible probe
-  // before the real labels are drawn, so the overlap rule can see a label
-  // that reaches into the next column. A name too long to stop short of the
-  // next column's bar is shortened to fit; the tooltip keeps the full name.
-  #measureLabels(svg, nodes, width) {
-    const probe = svg
-      .append("text")
-      .attr("class", "text-xs font-medium select-none")
-      .style("visibility", "hidden");
-    const measure = (d) => {
-      this.#writeLabel(probe, d, width);
-      const { x, y, width: boxWidth, height } = probe.node().getBBox();
-      return { x, y, width: boxWidth, height };
-    };
-
+  // The box of `d`'s label centred at `y`, measured with the invisible
+  // `probe` before the real labels are drawn, so the overlap rule can see a
+  // label that reaches into the next column. A name too long to stop short
+  // of the next column's bar at that height is shortened to fit (returned
+  // as `labelName`); the tooltip keeps the full name.
+  #labelMeasurer(probe, nodes, width) {
     const boxes = new Map();
-    nodes.forEach((d) => {
-      let box = measure(d);
-      const room = sankeyLabelRoom(d, box, nodes);
-      if (room !== null && box.width > room) {
-        d.labelName = this.#shortenedName(d, room, measure);
-        box = measure(d);
+    const measure = (d, name) => {
+      const key = `${d.index}:${name ?? ""}`;
+      if (!boxes.has(key)) {
+        d.labelName = name;
+        this.#writeLabel(probe, d, width);
+        const { x, y, width: boxWidth, height } = probe.node().getBBox();
+        boxes.set(key, { x, y, width: boxWidth, height });
       }
-      boxes.set(d.index, box);
-    });
+      return boxes.get(key);
+    };
+    const shortened = new Map();
 
-    probe.remove();
-    return boxes;
+    return (d, y) => {
+      const shift = y - (d.y0 + d.y1) / 2;
+      const at = (box, labelName) => ({ ...box, y: box.y + shift, labelName });
+      const full = at(measure(d));
+      const room = sankeyLabelRoom(d, full, nodes);
+      if (room === null || full.width <= room) return full;
+
+      const key = `${d.index}:${room}`;
+      if (!shortened.has(key)) {
+        shortened.set(
+          key,
+          this.#shortenedName(d, room, (name) => measure(d, name).width),
+        );
+      }
+      const labelName = shortened.get(key);
+      return at(measure(d, labelName), labelName);
+    };
   }
 
   // The longest "Name…" whose label fits in `room`, or undefined (the full
   // name) when even one letter doesn't.
-  #shortenedName(d, room, measure) {
+  #shortenedName(d, room, widthOf) {
     let fitting;
     let lo = 1;
     let hi = d.name.length - 1;
     while (lo <= hi) {
       const length = Math.floor((lo + hi) / 2);
-      d.labelName = `${d.name.slice(0, length).trimEnd()}…`;
-      if (measure(d).width <= room) {
-        fitting = d.labelName;
+      const name = `${d.name.slice(0, length).trimEnd()}…`;
+      if (widthOf(name) <= room) {
+        fitting = name;
         lo = length + 1;
       } else {
         hi = length - 1;
@@ -635,12 +655,12 @@ export default class extends Controller {
   }
 
   // Where each label goes, and which ones are hidden to prevent overlap
-  #layoutLabels(nodes, labelBoxes) {
+  #layoutLabels(nodes, labelBoxAt) {
     const height = this.#chartElement().clientHeight || 400;
     return layoutSankeyLabels(nodes, {
       height,
       minSpacing: this.constructor.MIN_LABEL_SPACING,
-      labelBoxes,
+      labelBoxAt,
     });
   }
 
